@@ -127,7 +127,7 @@ export function buildArcherStack(armorId = 'ranger', weaponId = 'recurve') {
     slices.push(
       bakeSlice(
         size,
-        ({ px, rect, disc, c }) => {
+        ({ px, rect, disc, ring, c }) => {
           // Boots (z 0..2)
           if (z <= 2) {
             rect(c - 1, c - 3.5, 3, 2, '#2d1f1b');
@@ -283,7 +283,7 @@ function buildSkeletonStack(isArcher = false) {
     slices.push(
       bakeSlice(
         size,
-        ({ px, rect, disc, c }) => {
+        ({ px, rect, disc, ring, c }) => {
           if (z <= 2) {
             rect(c - 0.8, c - 2.6, 2, 1.5, '#cbd5e1');
             rect(c - 0.8, c + 1.1, 2, 1.5, '#cbd5e1');
@@ -335,7 +335,7 @@ function buildImpStack() {
     slices.push(
       bakeSlice(
         size,
-        ({ px, rect, disc, c }) => {
+        ({ px, rect, disc, ring, c }) => {
           if (z <= 1) {
             px(c, c - 2, '#7f1d1d');
             px(c, c + 2, '#7f1d1d');
@@ -377,7 +377,7 @@ function buildGhoulStack() {
     slices.push(
       bakeSlice(
         size,
-        ({ px, rect, disc, c }) => {
+        ({ px, rect, disc, ring, c }) => {
           if (z <= 2) {
             rect(c - 2, c - 2.5, 3, 1.5, '#365314');
             rect(c - 2, c + 1, 3, 1.5, '#365314');
@@ -415,7 +415,7 @@ function buildHellguardStack() {
     slices.push(
       bakeSlice(
         size,
-        ({ px, rect, disc, c }) => {
+        ({ px, rect, disc, ring, c }) => {
           if (z <= 3) {
             rect(c - 1.5, c - 3.5, 3.5, 2.5, '#27272a');
             rect(c - 1.5, c + 1, 3.5, 2.5, '#27272a');
@@ -465,7 +465,7 @@ function buildCultistStack() {
     slices.push(
       bakeSlice(
         size,
-        ({ px, rect, disc, c }) => {
+        ({ px, rect, disc, ring, c }) => {
           if (z <= 5) {
             // Wide dark necromancer robes
             const r = 4.2 - z * 0.2;
@@ -539,7 +539,7 @@ function buildWraithStack() {
     slices.push(
       bakeSlice(
         size,
-        ({ px, rect, disc, c }) => {
+        ({ px, rect, disc, ring, c }) => {
           if (z <= 2) {
             // Floating icy wisps instead of boots!
             disc(c - 0.5, c, 1.4 + z * 0.4, '#0284c7');
@@ -592,7 +592,7 @@ function buildBossStack(variant = 'warden') {
     slices.push(
       bakeSlice(
         size,
-        ({ px, rect, disc, c }) => {
+        ({ px, rect, disc, ring, c }) => {
           if (z <= 3) {
             disc(c, c, 7.2 - z * 0.25, bodyDark);
             rect(c - 2, c - 5.5, 4.5, 3, '#18181b');

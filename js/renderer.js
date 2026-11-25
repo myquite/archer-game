@@ -358,6 +358,9 @@ export class GameRenderer {
 
   render(game) {
     const ctx = this.ctx;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
     ctx.imageSmoothingEnabled = false;
 
     const biome = game.biome;
@@ -372,7 +375,8 @@ export class GameRenderer {
     const camY = Math.round(game.camY + shakeY);
 
     ctx.save();
-    ctx.translate(-camX, -camY);
+    try {
+      ctx.translate(-camX, -camY);
 
     // 1. Dungeon Floor Masonry + Persistent Scorch Craters
     ctx.drawImage(this.floorCanvas, 0, 0);
@@ -548,8 +552,9 @@ export class GameRenderer {
       if (e.isBoss || e.hp < e.maxHp || e.armor > 0) this._drawEnemyBar(ctx, e);
     }
     for (const ft of game.floatingTexts) this._drawFloatingText(ctx, ft);
-
-    ctx.restore();
+    } finally {
+      ctx.restore();
+    }
 
     // 13. Cozy Twilight Dungeon Vignette (screen-space frame)
     ctx.drawImage(this.vignette, 0, 0);
