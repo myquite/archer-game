@@ -77,10 +77,13 @@ export class ArcherGame {
     this.curseEnemySpeed = 1.0;
     this.curseSwarmDensity = 1.0;
     this.vampKillCounter = 0;
+    this.bloodKillCounter = 0;
+    this.vampHealCd = 0;
     this.shotCounter = 0;
     this.vampCritCount = 0;
     this.frenzyTimer = 0;
     this.echoPending = 0;
+    this.ambientMortarTimer = 5.0;
 
     this.player = {
       x: this.arenaW / 2,
@@ -103,6 +106,9 @@ export class ArcherGame {
       dashTimer: 0,
       dashVx: 0,
       dashVy: 0,
+      stillTime: 0,
+      stillAnchorX: this.arenaW / 2,
+      stillAnchorY: this.arenaH - 70,
       emberTrailTimer: 0,
       stalkerCharge: 0,
       stalkerReady: false,
@@ -115,6 +121,8 @@ export class ArcherGame {
         fireLevel: 0,
         frostLevel: 0,
         lightningLevel: 0,
+        fireRateAdd: 0,
+        damageAdd: 0,
         fireRateMult: 1,
         damageMult: 1,
         knockbackMult: 1,
@@ -149,6 +157,7 @@ export class ArcherGame {
     this.launchBeams = [];
     this.spawnRifts = [];
     this.skyStrikes = [];
+    this.hazardZones = [];
     this.afterimages = [];
     this.lightningArcs = [];
     this.thunderBolts = [];
@@ -180,8 +189,9 @@ export class ArcherGame {
     if (biome.chapter > 1) {
       // Scale starter power cleanly when jumping straight into higher chapters!
       const boost = biome.chapter - 1;
-      this.player.mods.damageMult *= 1 + boost * 0.35;
-      this.player.mods.fireRateMult *= 1 + boost * 0.12;
+      this.player.mods.damageAdd += boost * 0.45;
+      this.player.mods.fireRateAdd += boost * 0.14;
+      this._syncAdditiveMods();
       this.player.maxHp += boost * 20;
       this.player.hp = this.player.maxHp;
       this.rerolls += 1;
@@ -229,6 +239,8 @@ export class ArcherGame {
     this.launchBeams = [];
     this.spawnRifts = [];
     this.skyStrikes = [];
+    this.hazardZones = [];
+    this.ambientMortarTimer = Math.max(3.2, 6.2 - floor * 0.25);
     this.afterimages = [];
     this.lightningArcs = [];
     this.thunderBolts = [];
@@ -244,6 +256,9 @@ export class ArcherGame {
     this.player.vy = 0;
     this.player.facing = -Math.PI / 2;
     this.player.tension = 0;
+    this.player.stillTime = 0;
+    this.player.stillAnchorX = this.player.x;
+    this.player.stillAnchorY = this.player.y;
     this.player.mana = Math.min(this.player.maxMana, this.player.mana + 30);
 
     this._generateProps();
@@ -422,10 +437,21 @@ export class ArcherGame {
   _spawnEnemy(enemyId, x, y) {
     const def = ENEMY_DEFS[enemyId];
     if (!def) return;
-    const hpScale = (1 + (this.floor - 1) * 0.35) * Math.pow(1.06, Math.max(0, this.floor - 3));
-    const spdScale = (1 + (this.floor - 1) * 0.065) * this.curseEnemySpeed;
-    const maxHp = Math.round(def.hp * hpScale);
-    const armorMax = def.armorMax ? Math.round(def.armorMax * hpScale) : 0;
+    // Steeper deep-floor scaling + Elite Dash-Chargers on Floor 3+!
+    const hpScale = (1 + (this.floor - 1) * 0.45) * Math.pow(1.11, Math.max(0, this.floor - 2));
+    const spdScale = Math.min(1.85, (1 + (this.floor - 1) * 0.07) * this.curseEnemySpeed);
+    const isElite =
+      !def.isBoss &&
+      this.floor >= 3 &&
+      (def.behavior === 'chase' || def.behavior === 'toxic_chase' || def.behavior === 'armored') &&
+      Math.random() < Math.min(0.26, 0.09 + this.floor * 0.02);
+
+    const maxHp = Math.round(def.hp * hpScale * (isElite ? 1.85 : 1));
+    const armorMax = def.armorMax
+      ? Math.round(def.armorMax * hpScale)
+      : isElite
+      ? Math.round(45 * hpScale)
+      : 0;
 
     this.enemies.push({
       ...def,
@@ -438,10 +464,17 @@ export class ArcherGame {
       maxHp,
       armor: armorMax,
       armorMax,
-      speed: def.speed * spdScale,
+      isElite,
+      speed: def.speed * spdScale * (isElite ? 1.1 : 1),
       flash: 0,
       wobble: 0,
+      poiseTimer: 0,
       fireTimer: (def.fireCooldown || 2.2) * (0.6 + Math.random() * 0.6),
+      hazardCd: 2.8 + Math.random() * 1.8,
+      chargeCooldown: isElite ? 2.4 + Math.random() * 1.5 : def.isBoss ? 4.2 : 99,
+      chargeWindup: 0,
+      chargeTimer: 0,
+      chargeAngle: 0,
       bossSkillTimer: 2.8,
       chillTimer: 0,
       burnTimer: 0,
@@ -589,10 +622,16 @@ export class ArcherGame {
     return true;
   }
 
+  _syncAdditiveMods() {
+    this.player.mods.damageMult = 1 + this.player.mods.damageAdd;
+    this.player.mods.fireRateMult = 1 + this.player.mods.fireRateAdd;
+  }
+
   temperWeapon() {
     if (this.gold < 45) return false;
     this.gold -= 45;
-    this.player.mods.damageMult *= 1.18;
+    this.player.mods.damageAdd += 0.16;
+    this._syncAdditiveMods();
     sfx.levelUp();
     this.ui.syncHud(this);
     return true;
@@ -631,6 +670,7 @@ export class ArcherGame {
       sfx.uiClick();
     }
 
+    this._syncAdditiveMods();
     if (this.pendingLevelUps > 0) {
       this.pendingLevelUps -= 1;
       this._openUpgradeDraft();
@@ -703,6 +743,7 @@ export class ArcherGame {
       sfx.bossRoar();
     }
     this.ui.closeModals();
+    this._syncAdditiveMods();
     if (this.pendingLevelUps > 0) {
       this.pendingLevelUps -= 1;
       this._openUpgradeDraft();
@@ -812,6 +853,7 @@ export class ArcherGame {
     this._updateEnemies(dt);
     this._updateProjectiles(dt);
     this._updateSkyStrikes(dt);
+    this._updateHazardZones(dt);
     this._updateDecals(dt);
     this._updatePickups(dt);
     this._updateParticles(dt);
@@ -977,10 +1019,41 @@ export class ArcherGame {
       p.facing = this._lerpAngle(p.facing, moveAngle, Math.min(1, dt * 12));
     }
 
-    if (!moving && this.aimTarget) {
-      p.tension = Math.min(1, p.tension + dt * 2.1 * p.mods.fireRateMult);
-    } else {
-      p.tension = Math.max(0, p.tension - dt * 2.8);
+    this._syncAdditiveMods();
+    if (this.vampHealCd > 0) this.vampHealCd = Math.max(0, this.vampHealCd - dt);
+
+    // Anti-Camp Dungeon Hazards: standing planted in one spot spawns telegraphed red mortars!
+    if (this.enemies.length > 0) {
+      if (Math.hypot(p.x - p.stillAnchorX, p.y - p.stillAnchorY) > 18) {
+        p.stillAnchorX = p.x;
+        p.stillAnchorY = p.y;
+        p.stillTime = 0;
+      } else {
+        p.stillTime += dt;
+        const campThreshold = this.floor >= 2 ? 1.7 : 2.8;
+        if (p.stillTime >= campThreshold) {
+          p.stillTime = 0.55;
+          this._spawnHazardZone(p.x, p.y, 26, 1.05, Math.round(16 + this.floor * 2.5), '#f43f5e', 'crimson');
+        }
+      }
+
+      // Floor 4+: periodic ambient dungeon mortars force continuous repositioning
+      if (this.floor >= 4) {
+        this.ambientMortarTimer -= dt;
+        if (this.ambientMortarTimer <= 0) {
+          this.ambientMortarTimer = Math.max(2.9, 5.8 - this.floor * 0.22);
+          const leadX = Math.max(30, Math.min(this.arenaW - 30, p.x + p.vx * 0.35));
+          const leadY = Math.max(40, Math.min(this.arenaH - 30, p.y + p.vy * 0.35));
+          this._spawnHazardZone(leadX, leadY, 27, 1.15, Math.round(18 + this.floor * 2.4), '#fb923c', 'amber');
+        }
+      }
+    }
+
+    // MOMENTUM SNAP: Moving charges your Snap gauge; planting your feet unleashes 1 massive Snap Shot!
+    if (moving) {
+      p.tension = Math.min(1, p.tension + dt * 1.15 * p.mods.fireRateMult);
+    } else if (!this.aimTarget) {
+      p.tension = Math.max(0, p.tension - dt * 0.65);
     }
 
     if (this.echoPending > 0) {
@@ -996,7 +1069,7 @@ export class ArcherGame {
       this._firePlayerVolley(weapon, isSnap, moving, false);
       const effectiveRate = weapon.fireRate * p.mods.fireRateMult * (isSnap ? 0.85 : 1.0);
       p.fireTimer = 1 / effectiveRate;
-      if (isSnap) p.tension = 0.15;
+      if (isSnap) p.tension = 0; // Consumes Momentum charge — kite again to charge your next Snap!
     }
 
     if (this.roomCleared && this.portal) {
@@ -1033,6 +1106,8 @@ export class ArcherGame {
       }
     }
 
+    const multiScale = 1 / (1 + Math.max(0, totalParallel - weapon.count) * 0.22);
+
     const spawnArrow = (angle, offsetPerp = 0, spectral = false) => {
       const ox = Math.cos(angle) * 9 - Math.sin(angle) * offsetPerp;
       const oy = Math.sin(angle) * 9 + Math.cos(angle) * offsetPerp;
@@ -1040,6 +1115,7 @@ export class ArcherGame {
       const dmg = Math.round(
         weapon.damage *
           p.mods.damageMult *
+          multiScale *
           (isSnap ? weapon.snapMult : 1.0) *
           (stalkerBoost ? 1.75 : 1.0) *
           (spectral ? 0.65 : 1.0)
@@ -1179,6 +1255,7 @@ export class ArcherGame {
       const e = this.enemies[i];
       if (e.flash > 0) e.flash -= dt;
       if (e.wobble > 0) e.wobble = Math.max(0, e.wobble - dt * 4.5);
+      if (e.poiseTimer > 0) e.poiseTimer = Math.max(0, e.poiseTimer - dt);
       if (e.chillTimer > 0) e.chillTimer -= dt;
       if (e.snareTimer > 0) e.snareTimer -= dt;
 
@@ -1201,6 +1278,45 @@ export class ArcherGame {
 
       const speedMod = e.snareTimer > 0 ? 0.08 : e.chillTimer > 0 ? 0.62 : 1.0;
       const spd = e.speed * speedMod;
+
+      // Elite Charger & Deep Boss Telegraphed Dash Lunge (unstoppable through arrows!)
+      if (e.isElite || (e.isBoss && this.floor >= 6)) {
+        if (e.chargeWindup > 0) {
+          e.chargeWindup -= dt;
+          e.vx *= 0.7;
+          e.vy *= 0.7;
+          e.facing = e.chargeAngle;
+          if (e.chargeWindup <= 0) {
+            e.chargeTimer = e.isBoss ? 0.44 : 0.48;
+            sfx.dash();
+          }
+          e.x += e.vx * dt;
+          e.y += e.vy * dt;
+          this._resolveArenaAndProps(e, false);
+          continue;
+        } else if (e.chargeTimer > 0) {
+          e.chargeTimer -= dt;
+          const dashSpd = e.isBoss ? 215 : 235;
+          e.vx = Math.cos(e.chargeAngle) * dashSpd;
+          e.vy = Math.sin(e.chargeAngle) * dashSpd;
+          e.facing = e.chargeAngle;
+          e.x += e.vx * dt;
+          e.y += e.vy * dt;
+          this._resolveArenaAndProps(e, false);
+          if (p.invuln <= 0 && Math.hypot(p.x - e.x, p.y - e.y) < p.radius + e.radius) {
+            this._hurtPlayer(e.damage * 1.15, e.x, e.y);
+          }
+          continue;
+        } else {
+          e.chargeCooldown -= dt;
+          if (e.chargeCooldown <= 0 && dist < 175 && dist > 38 && e.snareTimer <= 0) {
+            e.chargeCooldown = e.isBoss ? 4.8 : 3.5;
+            e.chargeWindup = 0.65;
+            e.chargeAngle = Math.atan2(dy, dx);
+            this._spawnText(e.x, e.y - 24, 'CHARGE!', '#f43f5e', false);
+          }
+        }
+      }
 
       if (e.behavior === 'ranged' || e.behavior === 'summoner' || e.behavior === 'wraith') {
         const keepDist = e.behavior === 'wraith' ? 92 : 118;
@@ -1227,6 +1343,23 @@ export class ArcherGame {
             this._fireEnemyShot(e, e.facing, 134 + this.floor * 3, e.damage);
           }
         }
+        // Cultists & Wraiths drop telegraphed ground hazards under the player!
+        if (e.behavior === 'summoner' || e.behavior === 'wraith') {
+          e.hazardCd -= dt;
+          if (e.hazardCd <= 0 && dist < 210) {
+            e.hazardCd = 3.8 + Math.random() * 1.4;
+            const isIce = e.behavior === 'wraith';
+            this._spawnHazardZone(
+              target.x,
+              target.y,
+              24,
+              1.1,
+              Math.round(e.damage * 1.2),
+              isIce ? '#38bdf8' : '#e879f9',
+              isIce ? 'cyan' : 'violet'
+            );
+          }
+        }
       } else if (e.behavior === 'zigzag' || e.behavior === 'bomber') {
         const perp = Math.sin(this.time * (e.behavior === 'bomber' ? 8 : 6) + e.seed) * 0.55;
         const ang = e.facing + perp;
@@ -1243,6 +1376,17 @@ export class ArcherGame {
             const ang = e.facing + (b / bolts) * Math.PI * 2;
             this._fireEnemyShot(e, ang, 118 + this.floor * 3, e.damage * 0.8);
           }
+          // Boss drops twin telegraphed slam circles near the player to force active dodging!
+          this._spawnHazardZone(p.x, p.y, 28, 1.1, Math.round(e.damage * 1.1), '#f43f5e', 'crimson');
+          this._spawnHazardZone(
+            Math.max(30, Math.min(this.arenaW - 30, p.x + p.vx * 0.55)),
+            Math.max(40, Math.min(this.arenaH - 30, p.y + p.vy * 0.55)),
+            24,
+            1.3,
+            Math.round(e.damage * 1.0),
+            '#fb923c',
+            'amber'
+          );
           if (e.behavior === 'boss_poison') {
             this.decals.push({ kind: 'poison', x: p.x, y: p.y, radius: 24, life: 5.0, maxLife: 5.0 });
           }
@@ -1482,9 +1626,20 @@ export class ArcherGame {
         if (Math.hypot(pr.x - e.x, pr.y - e.y) < e.radius + 5) {
           if (pr.hitIds) pr.hitIds.add(e);
 
-          // Frostfang Bow deals +35% bonus damage to already-chilled foes!
-          const hitDmg = pr.innateChill && e.chillTimer > 0 ? Math.round(pr.damage * 1.35) : pr.damage;
-          this._damageEnemy(e, hitDmg, pr.crit, { x: pr.vx, y: pr.vy }, pr.knockback);
+          // Hellguard frontal shield blocks 45% damage & all knockback from front hits!
+          let hitDmg = pr.innateChill && e.chillTimer > 0 ? Math.round(pr.damage * 1.35) : pr.damage;
+          let hitKb = pr.knockback;
+          let shielded = false;
+          if (e.behavior === 'armored' && e.armor > 0) {
+            const shotAng = Math.atan2(pr.vy, pr.vx);
+            const dot = Math.cos(shotAng - e.facing);
+            if (dot < -0.42) {
+              hitDmg = Math.max(1, Math.round(hitDmg * 0.55));
+              hitKb = 0;
+              shielded = true;
+            }
+          }
+          this._damageEnemy(e, hitDmg, pr.crit && !shielded, { x: pr.vx, y: pr.vy }, hitKb, shielded ? '#94a3b8' : null);
 
           // Dragon Cannon explosive AoE blast!
           if (pr.explosiveRadius > 0) {
@@ -1508,9 +1663,11 @@ export class ArcherGame {
             this._triggerTempestBolt(e);
           }
 
-          if (pr.crit && p.mods.vampiric > 0 && Math.random() < 0.35) {
-            p.hp = Math.min(p.maxHp, p.hp + 4 * p.mods.vampiric);
-            this._spawnText(p.x, p.y - 22, `+${4 * p.mods.vampiric}`, '#4ade80', false);
+          if (pr.crit && p.mods.vampiric > 0 && this.vampHealCd <= 0 && Math.random() < 0.35) {
+            this.vampHealCd = 1.2;
+            const heal = 3 + p.mods.vampiric * 2;
+            p.hp = Math.min(p.maxHp, p.hp + heal);
+            this._spawnText(p.x, p.y - 22, `+${heal}`, '#4ade80', false);
             if (p.evolutions.has('blood_eclipse')) {
               this.vampCritCount += 1;
               if (this.vampCritCount >= 3) {
@@ -1576,10 +1733,14 @@ export class ArcherGame {
       this.lightFlashes.push({ x: e.x, y: e.y - 10, radius: 34, colorKey: 'gold', life: 0.12, maxLife: 0.12 });
     }
 
-    if (knockback > 0 && !e.isBoss) {
+    // Knockback Poise: prevents permastun turreting on rapid bows & deep floors!
+    const kbImmune = e.isBoss || (e.behavior === 'armored' && e.armor > 0) || e.chargeWindup > 0 || e.chargeTimer > 0;
+    if (knockback > 0 && !kbImmune && e.poiseTimer <= 0) {
+      const floorResist = 1 / (1 + this.floor * 0.12);
       const len = Math.hypot(dir.x, dir.y) || 1;
-      e.x += (dir.x / len) * (knockback * 0.14);
-      e.y += (dir.y / len) * (knockback * 0.14);
+      e.x += (dir.x / len) * (knockback * 0.12 * floorResist);
+      e.y += (dir.y / len) * (knockback * 0.12 * floorResist);
+      e.poiseTimer = 0.42;
       this._resolveArenaAndProps(e);
     }
 
@@ -1616,9 +1777,13 @@ export class ArcherGame {
       }
     }
 
-    // Armor Passive: Bloodplate Cuirass leeches +2 HP on every kill!
+    // Armor Passive: Bloodplate Cuirass leeches +2 HP every 2 kills
     if (ARMORS[this.player.armorId].passive === 'kill_leech') {
-      this.player.hp = Math.min(this.player.maxHp, this.player.hp + 2);
+      this.bloodKillCounter += 1;
+      if (this.bloodKillCounter >= 2) {
+        this.bloodKillCounter = 0;
+        this.player.hp = Math.min(this.player.maxHp, this.player.hp + 2);
+      }
     }
 
     // Cinder Bomber explodes on death, blasting nearby monsters too!
@@ -1869,6 +2034,30 @@ export class ArcherGame {
     }
   }
 
+  _spawnHazardZone(x, y, radius, duration, damage, color = '#f43f5e', colorKey = 'crimson') {
+    this.hazardZones.push({ x, y, radius, duration, timer: duration, damage, color, colorKey });
+  }
+
+  _updateHazardZones(dt) {
+    const p = this.player;
+    for (let i = this.hazardZones.length - 1; i >= 0; i--) {
+      const hz = this.hazardZones[i];
+      hz.timer -= dt;
+      if (hz.timer <= 0) {
+        sfx.explode();
+        this.shake = Math.max(this.shake, 3.2);
+        this.novaRings.push({ x: hz.x, y: hz.y, maxRadius: hz.radius + 6, color: hz.color, life: 0.25, maxLife: 0.25 });
+        this.lightFlashes.push({ x: hz.x, y: hz.y, radius: hz.radius * 2.1, colorKey: hz.colorKey, life: 0.22, maxLife: 0.22 });
+        this.scorchMarks.push({ x: hz.x, y: hz.y, radius: hz.radius * 0.65, ember: hz.colorKey !== 'cyan', life: 10, maxLife: 10 });
+        this._burstParticles(hz.x, hz.y - 4, hz.color, 12, 68);
+        if (p.invuln <= 0 && Math.hypot(p.x - hz.x, p.y - hz.y) < hz.radius + p.radius - 2) {
+          this._hurtPlayer(hz.damage, hz.x, hz.y);
+        }
+        this.hazardZones.splice(i, 1);
+      }
+    }
+  }
+
   _updateDecals(dt) {
     const p = this.player;
     for (let i = this.decals.length - 1; i >= 0; i--) {
@@ -1955,9 +2144,9 @@ export class ArcherGame {
             });
           }
         } else if (it.type === 'heart') {
-          p.hp = Math.min(p.maxHp, p.hp + 28);
+          p.hp = Math.min(p.maxHp, p.hp + 22);
           sfx.pickup(true);
-          this._spawnText(p.x, p.y - 20, '+28 HP', '#4ade80', false);
+          this._spawnText(p.x, p.y - 20, '+22 HP', '#4ade80', false);
         } else {
           this.xp += it.value;
           sfx.pickup(false);

@@ -263,7 +263,7 @@ export const ARMORS = {
     id: 'bloodplate',
     name: 'Bloodplate',
     tag: '+70 HP / LEECH',
-    desc: 'Winged vampire armor. +70 Max HP & +2 HP on every kill.',
+    desc: 'Winged vampire armor. +70 Max HP & +2 HP every 2 kills.',
     cost: 125,
     maxHpBonus: 70,
     speedMult: 0.98,
@@ -369,8 +369,8 @@ export const UPGRADES = [
     icon: '»',
     color: '#fde047',
     maxRank: 4,
-    desc: '+22% fire rate & faster Snap charge',
-    apply: (p) => { p.mods.fireRateMult *= 1.22; },
+    desc: '+18% fire rate & faster Momentum charge',
+    apply: (p) => { p.mods.fireRateAdd += 0.18; },
   },
   {
     id: 'vampiric',
@@ -379,8 +379,8 @@ export const UPGRADES = [
     icon: '♥',
     color: '#f43f5e',
     maxRank: 3,
-    desc: '+12% Crit chance & crits heal HP',
-    apply: (p) => { p.mods.critBonus += 0.12; p.mods.vampiric += 1; },
+    desc: '+10% Crit chance & crits restore HP',
+    apply: (p) => { p.mods.critBonus += 0.10; p.mods.vampiric += 1; },
   },
   {
     id: 'heavy',
@@ -389,8 +389,8 @@ export const UPGRADES = [
     icon: '⚔',
     color: '#fb7185',
     maxRank: 4,
-    desc: '+28% arrow damage & +25% knockback',
-    apply: (p) => { p.mods.damageMult *= 1.28; p.mods.knockbackMult *= 1.25; },
+    desc: '+24% arrow damage & +18% knockback',
+    apply: (p) => { p.mods.damageAdd += 0.24; p.mods.knockbackMult += 0.18; },
   },
   {
     id: 'haste',
@@ -421,9 +421,9 @@ export const EVOLUTIONS = [
     icon: '☄',
     color: '#fb923c',
     requires: ['hellfire', 'pierce'],
-    desc: '+40% DMG, +2 Pierce & blazing fire trails',
+    desc: '+35% DMG, +2 Pierce & blazing fire trails',
     apply: (p) => {
-      p.mods.damageMult *= 1.4;
+      p.mods.damageAdd += 0.35;
       p.mods.pierce += 2;
       p.evolutions.add('comet_lance');
     },
@@ -554,20 +554,20 @@ export const CURSED_PACTS = [
   {
     id: 'bloodlust',
     name: 'Endless Arrows',
-    desc: '+45% fire rate & +1 arrow, foes 18% faster',
+    desc: '+35% fire rate & +1 arrow, foes 20% faster',
     apply: (g) => {
-      g.player.mods.fireRateMult *= 1.45;
+      g.player.mods.fireRateAdd += 0.35;
       g.player.mods.extraArrows += 1;
-      g.curseEnemySpeed *= 1.18;
+      g.curseEnemySpeed *= 1.2;
     },
   },
   {
     id: 'glasscannon',
     name: 'Demon Tension',
-    desc: '+65% DMG & +20% Crit, lose 25% Max HP',
+    desc: '+50% DMG & +18% Crit, lose 25% Max HP',
     apply: (g) => {
-      g.player.mods.damageMult *= 1.65;
-      g.player.mods.critBonus += 0.2;
+      g.player.mods.damageAdd += 0.5;
+      g.player.mods.critBonus += 0.18;
       g.player.maxHp = Math.max(50, Math.round(g.player.maxHp * 0.75));
       g.player.hp = Math.min(g.player.hp, g.player.maxHp);
     },

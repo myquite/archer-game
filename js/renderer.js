@@ -415,6 +415,18 @@ export class GameRenderer {
       this._drawSkyStrikeWarning(ctx, strike, game.time);
     }
 
+    // Telegraphed enemy ground hazard circles (anti-camp mortars, cultist blasts, boss slams!)
+    for (const hz of game.hazardZones) {
+      this._drawHazardZone(ctx, hz, game.time);
+    }
+
+    // Elite Charger / Boss red dash telegraph lines!
+    for (const e of game.enemies) {
+      if (e.chargeWindup > 0) {
+        this._drawChargeTelegraph(ctx, e, game.time);
+      }
+    }
+
     // 4. Target lock reticle
     if (game.aimTarget && game.aimTarget.hp > 0) {
       const t = game.aimTarget;
@@ -622,9 +634,12 @@ export class GameRenderer {
       else if (d.kind === 'poison') this._stampLight(ctx, 'emerald', d.x, d.y, d.radius * 1.25, 0.4);
     }
 
-    // Demonic Spawn Rifts & Exit Portal
+    // Demonic Spawn Rifts, Hazard Circles & Exit Portal
     for (const r of game.spawnRifts) {
       this._stampLight(ctx, r.isBoss ? 'gold' : 'crimson', r.x, r.y, r.isBoss ? 44 : 24, 0.75);
+    }
+    for (const hz of game.hazardZones) {
+      this._stampLight(ctx, hz.colorKey || 'crimson', hz.x, hz.y, hz.radius * 1.45, 0.72);
     }
     if (game.roomCleared && game.portal) {
       this._stampLight(ctx, 'violet', game.portal.x, game.portal.y, 48 + Math.sin(game.time * 6) * 5, 0.9);
@@ -736,7 +751,23 @@ export class GameRenderer {
 
     const walkBob = Math.sin(time * (e.isBoss ? 8 : 14) + e.seed) * 0.06;
     const wobbleX = e.wobble > 0 ? Math.sin(time * 58) * e.wobble * 3.0 : 0;
-    const scale = e.isBoss ? 1.32 : e.id === 'hellguard' ? 1.12 : 1.0;
+    const scale = e.isBoss ? 1.32 : e.isElite ? 1.18 : e.id === 'hellguard' ? 1.12 : 1.0;
+
+    // Elite Charger aura ring under feet
+    if (e.isElite) {
+      this._drawRuneCircle(ctx, e.x, e.y + 1, e.radius + 5, e.chargeTimer > 0 ? '#fde047' : '#f43f5e', time, 3.6, 4, 0.14);
+    }
+
+    // Hellguard visible frontal shield arc while armored
+    if (e.behavior === 'armored' && e.armor > 0) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(251, 191, 36, 0.78)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(e.x, e.y + 1, e.radius + 4, (e.radius + 4) * 0.65, 0, e.facing - 0.95, e.facing + 0.95);
+      ctx.stroke();
+      ctx.restore();
+    }
 
     this.drawSpriteStack(ctx, stack, e.x, e.y, {
       angle: e.facing,
@@ -948,7 +979,6 @@ export class GameRenderer {
 
     if (p > 0.48) {
       const h = (1 - p) * 280;
-      // Glowing cyan-white vertical rain streaks!
       ctx.fillStyle = '#38bdf8';
       ctx.fillRect(Math.round(s.x - 2), Math.round(s.y - h - 22), 4, 22);
       ctx.fillStyle = '#ffffff';
@@ -957,6 +987,56 @@ export class GameRenderer {
       ctx.fillRect(Math.round(s.x - 7), Math.round(s.y - h - 30), 2, 15);
       ctx.fillRect(Math.round(s.x + 6), Math.round(s.y - h - 26), 2, 15);
     }
+  }
+
+  _drawHazardZone(ctx, hz, time) {
+    const p = Math.max(0, Math.min(1, 1 - hz.timer / hz.duration));
+    const col = hz.color || '#f43f5e';
+    const ry = hz.radius * 0.64;
+
+    ctx.save();
+    // Outer warning perimeter
+    ctx.strokeStyle = col;
+    ctx.lineWidth = p > 0.78 && Math.floor(time * 24) % 2 === 0 ? 2.5 : 1.5;
+    ctx.beginPath();
+    ctx.ellipse(hz.x, hz.y, hz.radius, ry, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Expanding inner fill showing exact detonation countdown!
+    ctx.fillStyle = col;
+    ctx.globalAlpha = 0.22 + p * 0.28;
+    ctx.beginPath();
+    ctx.ellipse(hz.x, hz.y, hz.radius * p, ry * p, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Crisp center warning cross
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = p > 0.75 ? '#ffffff' : '#fde047';
+    ctx.fillRect(Math.round(hz.x - 3), Math.round(hz.y), 7, 1);
+    ctx.fillRect(Math.round(hz.x), Math.round(hz.y - 2), 1, 5);
+    ctx.restore();
+  }
+
+  _drawChargeTelegraph(ctx, e, time) {
+    const blink = Math.floor(time * 22) % 2 === 0;
+    const tx = e.x + Math.cos(e.chargeAngle) * 115;
+    const ty = e.y + Math.sin(e.chargeAngle) * 115;
+    ctx.save();
+    ctx.strokeStyle = blink ? '#fde047' : '#f43f5e';
+    ctx.lineWidth = 3;
+    ctx.globalAlpha = 0.42;
+    ctx.beginPath();
+    ctx.moveTo(e.x, e.y);
+    ctx.lineTo(tx, ty);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.85;
+    ctx.setLineDash([4, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
   }
 
   _drawExitPortal(ctx, portal, time) {
