@@ -6,8 +6,13 @@
 //   forked dual-layer thunderbolts, 4-point crit starbursts, bow charge glint & cooling scorch craters
 // - Rich medieval dungeon stonework with arched alcoves, heraldic banners, wall torches & twilight vignette
 
+import { WEAPONS } from './data.js';
+
 export const VIEW_W = 270;
 export const VIEW_H = 402;
+
+const WEAPON_BUF_SIZE = 52;
+const WEAPON_BUF_HALF = WEAPON_BUF_SIZE / 2;
 
 export class GameRenderer {
   constructor(canvas, sprites) {
@@ -19,6 +24,14 @@ export class GameRenderer {
     this.ctx = canvas.getContext('2d');
     this.ctx.imageSmoothingEnabled = false;
     this.sprites = sprites;
+
+    // Reusable 16-bit pixel-outlined scratch buffer for live animated weapon rigs
+    this._wGrid = new Array(WEAPON_BUF_SIZE * WEAPON_BUF_SIZE).fill(null);
+    this._wCanvas = document.createElement('canvas');
+    this._wCanvas.width = WEAPON_BUF_SIZE;
+    this._wCanvas.height = WEAPON_BUF_SIZE;
+    this._wCtx = this._wCanvas.getContext('2d');
+    this._wCtx.imageSmoothingEnabled = false;
 
     this.floorCanvas = null;
     this.floorBiomeKey = null;
@@ -710,27 +723,42 @@ export class GameRenderer {
     const stack = this.sprites.getArcher(p.armorId, p.weaponId);
     const speed = Math.hypot(p.vx, p.vy);
     const bob = speed > 6 ? Math.sin(time * 18) * 0.06 : Math.sin(time * 4) * 0.025;
+    const draw = Math.max(0, Math.min(1, p.drawPhase ?? 0.45));
     const recoilStretch = p.recoil > 0 ? Math.sin(p.recoil * Math.PI * 3) * 0.16 : 0;
-    const scaleZ = 1 + bob + recoilStretch - p.tension * 0.08;
+    const scaleZ = 1 + bob + recoilStretch - p.tension * 0.07 - draw * 0.04;
     const invulnBlink = p.invuln > 0 && Math.floor(time * 24) % 2 === 0;
+    const alpha = invulnBlink ? 0.55 : 1;
+
+    // Subtle athletic torso twist: shoulders coil back on draw and snap forward on release!
+    const aimTwist = -draw * 0.24 + p.recoil * 0.22;
+    const lagX = -p.vx * 0.032 - Math.cos(p.facing) * draw * 0.9;
+    const lagY = -p.vy * 0.02 - Math.sin(p.facing) * draw * 0.6;
+    const wobbleX = p.recoil > 0 ? -Math.cos(p.facing) * p.recoil * 2.2 : 0;
 
     this.drawSpriteStack(ctx, stack, p.x, p.y, {
       angle: p.facing,
       scale: 1.08,
       sliceStep: 1.28,
       scaleZ,
-      lagX: -p.vx * 0.032,
-      lagY: -p.vy * 0.02,
-      wobbleX: p.recoil > 0 ? -Math.cos(p.facing) * p.recoil * 2.2 : 0,
+      lagX,
+      lagY,
+      wobbleX,
+      spinOffset: aimTwist,
       flash: p.hurtFlash > 0,
-      alpha: invulnBlink ? 0.55 : 1,
+      alpha,
       shadowRadius: 8.5,
     });
 
-    // Crisp 4-point pixel star glint on the arrowhead when Tension Snap is charged!
+    // Live chunky 16-bit pixel-outlined weapon rig at hand height (z ≈ 10.5)
+    const zNorm = 10.5 / Math.max(1, stack.slices.length - 1);
+    const handX = p.x + lagX * zNorm + wobbleX * zNorm;
+    const handY = p.y - 10.5 * 1.28 * 1.08 * scaleZ + lagY * zNorm * 0.5;
+    const glint = this._drawWeaponRig(ctx, p, time, handX, handY, alpha);
+
+    // Crisp 4-point pixel star glint right on the gleaming arrowhead when Momentum Snap is charged!
     if (p.tension >= 0.72) {
-      const gx = Math.round(p.x + Math.cos(p.facing) * 10);
-      const gy = Math.round(p.y - 11 + Math.sin(p.facing) * 7);
+      const gx = Math.round(glint ? glint.x : p.x + Math.cos(p.facing) * 12);
+      const gy = Math.round(glint ? glint.y : p.y - 12 + Math.sin(p.facing) * 9);
       const sz = Math.floor(time * 18) % 2 === 0 ? 5 : 3;
       ctx.fillStyle = '#fde047';
       ctx.fillRect(gx - sz, gy, sz * 2 + 1, 1);
@@ -738,6 +766,454 @@ export class GameRenderer {
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(gx - 1, gy - 1, 3, 3);
     }
+  }
+
+  // Crisp 16-bit pixel-rasterized & 1px #0c0714 outlined live animated weapon rig
+  // Supports all 5 flexing Bows + Arbalest + Dragon Cannon + Ricochet Chakram!
+  _drawWeaponRig(ctx, p, time, anchorX, anchorY, alpha = 1) {
+    const weapon = WEAPONS[p.weaponId] || WEAPONS.recurve;
+    const wid = weapon.id;
+    const draw = Math.max(0, Math.min(1, p.drawPhase ?? 0.45));
+    const twang = Math.max(0, Math.min(1, p.stringTwang ?? 0));
+    const recoil = Math.max(0, Math.min(1, p.recoil ?? 0));
+    const snapReady = p.tension >= 0.72;
+    const flash = p.hurtFlash > 0;
+
+    const grid = this._wGrid;
+    grid.fill(null);
+    const W = WEAPON_BUF_SIZE;
+    const H = WEAPON_BUF_SIZE;
+    const CX = WEAPON_BUF_HALF;
+    const CY = WEAPON_BUF_HALF;
+
+    let minX = W;
+    let maxX = -1;
+    let minY = H;
+    let maxY = -1;
+
+    const plot = (x, y, color) => {
+      const gx = Math.round(CX + x);
+      const gy = Math.round(CY + y);
+      if (gx >= 1 && gx < W - 1 && gy >= 1 && gy < H - 1) {
+        grid[gy * W + gx] = color;
+        if (gx < minX) minX = gx;
+        if (gx > maxX) maxX = gx;
+        if (gy < minY) minY = gy;
+        if (gy > maxY) maxY = gy;
+      }
+    };
+
+    const plotThick = (x, y, color) => {
+      plot(x, y, color);
+      plot(x + 1, y, color);
+      plot(x, y + 1, color);
+    };
+
+    const plotLine = (x0, y0, x1, y1, color, thick = false) => {
+      let ix0 = Math.round(x0);
+      let iy0 = Math.round(y0);
+      const ix1 = Math.round(x1);
+      const iy1 = Math.round(y1);
+      const dx = Math.abs(ix1 - ix0);
+      const dy = Math.abs(iy1 - iy0);
+      const sx = ix0 < ix1 ? 1 : -1;
+      const sy = iy0 < iy1 ? 1 : -1;
+      let err = dx - dy;
+      for (let guard = 0; guard < 80; guard++) {
+        if (thick) plotThick(ix0, iy0, color);
+        else plot(ix0, iy0, color);
+        if (ix0 === ix1 && iy0 === iy1) break;
+        const e2 = err * 2;
+        if (e2 > -dy) {
+          err -= dy;
+          ix0 += sx;
+        }
+        if (e2 < dx) {
+          err += dx;
+          iy0 += sy;
+        }
+      }
+    };
+
+    const plotDisc = (cx, cy, r, color) => {
+      const r2 = r * r;
+      for (let dy = Math.floor(-r); dy <= Math.ceil(r); dy++) {
+        for (let dx = Math.floor(-r); dx <= Math.ceil(r); dx++) {
+          if (dx * dx + dy * dy <= r2) plot(cx + dx, cy + dy, color);
+        }
+      }
+    };
+
+    const stringPixels = [];
+    const addStringLine = (x0, y0, x1, y1, color) => {
+      let ix0 = Math.round(CX + x0);
+      let iy0 = Math.round(CY + y0);
+      const ix1 = Math.round(CX + x1);
+      const iy1 = Math.round(CY + y1);
+      const dx = Math.abs(ix1 - ix0);
+      const dy = Math.abs(iy1 - iy0);
+      const sx = ix0 < ix1 ? 1 : -1;
+      const sy = iy0 < iy1 ? 1 : -1;
+      let err = dx - dy;
+      for (let guard = 0; guard < 80; guard++) {
+        if (ix0 >= 1 && ix0 < W - 1 && iy0 >= 1 && iy0 < H - 1) {
+          stringPixels.push({ x: ix0, y: iy0, color });
+        }
+        if (ix0 === ix1 && iy0 === iy1) break;
+        const e2 = err * 2;
+        if (e2 > -dy) {
+          err -= dy;
+          ix0 += sx;
+        }
+        if (e2 < dx) {
+          err += dx;
+          iy0 += sy;
+        }
+      }
+    };
+
+    const angle = p.facing;
+    const cosA = Math.cos(angle);
+    const sinA = Math.sin(angle);
+    // Lift weapon slightly when aiming North so bow arch, string V & arrowhead stay razor clear!
+    const northLift = sinA < -0.28 ? (-sinA - 0.28) * 3.8 : 0;
+
+    const proj = (lx, ly, lz = 0) => ({
+      x: (lx * cosA - ly * sinA) * 1.08,
+      y: (lx * sinA + ly * cosA) * 0.84 - lz - northLift,
+    });
+
+    const drawArrow = (tailX, headX, ly, shaftCol, tipCol, fletchCol, heavy = false) => {
+      const tail = proj(tailX, ly);
+      const shaftEnd = proj(headX - 1.8, ly);
+      const tip = proj(headX + 0.8, ly);
+      const barbL = proj(headX - 2.2, ly - (heavy ? 2.1 : 1.6));
+      const barbR = proj(headX - 2.2, ly + (heavy ? 2.1 : 1.6));
+
+      // Feathered fletching at the nock
+      const flA = proj(tailX + 2.2, ly);
+      const flL = proj(tailX - 0.8, ly - 1.7);
+      const flR = proj(tailX - 0.8, ly + 1.7);
+      plotLine(flA.x, flA.y, flL.x, flL.y, fletchCol, false);
+      plotLine(flA.x, flA.y, flR.x, flR.y, fletchCol, false);
+      plot(tail.x, tail.y, '#ffffff');
+
+      // Crisp arrow shaft
+      plotLine(tail.x, tail.y, shaftEnd.x, shaftEnd.y, shaftCol, heavy);
+
+      // Gleaming broadhead tip
+      plotLine(barbL.x, barbL.y, tip.x, tip.y, tipCol, false);
+      plotLine(barbR.x, barbR.y, tip.x, tip.y, tipCol, false);
+      plotLine(barbL.x, barbL.y, barbR.x, barbR.y, tipCol, false);
+      plot(tip.x, tip.y, '#ffffff');
+      const midHead = proj(headX - 0.8, ly);
+      plot(midHead.x, midHead.y, snapReady ? '#ffffff' : tipCol);
+      return tip;
+    };
+
+    let glintLocal = proj(12, 0);
+
+    if (wid === 'arbalest') {
+      // MECHANICAL CROSSBOW: stock + flexing steel prod + pulling bowstring + golden bolt!
+      const stockShift = -recoil * 1.5;
+      const butt = proj(1.8 + stockShift, 0);
+      const muzzle = proj(11.2 + stockShift, 0);
+      const prodCenterX = 9.0 + stockShift;
+      const prodHalf = 7.6 * (1 - draw * 0.09);
+      const prodBend = 1.6 + draw * 2.2 - Math.sin(twang * Math.PI * 5) * twang * 0.7;
+
+      const prodPt = (t) => proj(prodCenterX - prodBend * (t * t), t * prodHalf);
+      const topTip = prodPt(-1);
+      const botTip = prodPt(1);
+      const tipLocalX = prodCenterX - prodBend;
+      const twangWave = twang > 0 ? Math.sin(twang * Math.PI * 6) * twang * 2.5 : 0;
+      const nockLocalX = tipLocalX - draw * 4.8 + twangWave;
+      const nockPt = proj(nockLocalX, 0);
+
+      // Taut crossbow string
+      const strCol = snapReady ? '#fef08a' : '#f8fafc';
+      addStringLine(topTip.x, topTip.y, nockPt.x, nockPt.y, strCol);
+      addStringLine(nockPt.x, nockPt.y, botTip.x, botTip.y, strCol);
+
+      // Foregrip & rear hands
+      const gripHand = proj(6.0 + stockShift, -0.8);
+      const trigHand = proj(2.8 + stockShift, 0.9);
+      plotDisc(gripHand.x, gripHand.y, 1.2, '#e6c3a5');
+      plotDisc(trigHand.x, trigHand.y, 1.2, '#e6c3a5');
+
+      // Heavy wooden/iron stock & brass rail
+      plotLine(butt.x, butt.y, muzzle.x, muzzle.y, weapon.woodColor, true);
+      const railStart = proj(3.5 + stockShift, 0);
+      const railEnd = proj(10.5 + stockShift, 0);
+      plotLine(railStart.x, railStart.y, railEnd.x, railEnd.y, '#94a3b8', false);
+
+      // Flexing steel crossbow prod limbs
+      let prev = null;
+      for (let i = -8; i <= 8; i++) {
+        const t = i / 8;
+        const pt = prodPt(t);
+        const col = Math.abs(t) > 0.75 ? weapon.accentColor : Math.abs(t) < 0.25 ? '#fbbf24' : '#cbd5e1';
+        if (prev) plotLine(prev.x, prev.y, pt.x, pt.y, col, Math.abs(t) < 0.55);
+        prev = pt;
+      }
+
+      // Loaded golden crossbow bolt (hidden briefly right after release)
+      if (twang < 0.62) {
+        const boltTip = drawArrow(
+          nockLocalX + 0.4,
+          Math.max(12.2 + stockShift, nockLocalX + 8.6),
+          0,
+          '#fef9c3',
+          snapReady ? '#fde047' : weapon.color,
+          weapon.accentColor,
+          false
+        );
+        glintLocal = boltTip;
+      } else {
+        glintLocal = muzzle;
+      }
+    } else if (wid === 'dragoncannon') {
+      // CHUNKY BRASS & IRON HAND MORTAR with heavy recoil & glowing ember muzzle!
+      const kick = -recoil * 3.4;
+      const rear = proj(1.8 + kick, 0);
+      const mid = proj(7.2 + kick, 0);
+      const mouth = proj(11.0 + kick, 0);
+
+      // Braced hands holding mortar
+      const h1 = proj(3.0 + kick, 1.8);
+      const h2 = proj(6.8 + kick, -1.8);
+      plotDisc(h1.x, h1.y, 1.3, '#e6c3a5');
+      plotDisc(h2.x, h2.y, 1.3, '#e6c3a5');
+
+      // Thick cast-iron barrel body
+      for (const off of [-1.5, -0.5, 0.5, 1.5]) {
+        const a = proj(2.4 + kick, off);
+        const b = proj(10.2 + kick, off);
+        const col = Math.abs(off) > 1 ? '#3f3f46' : weapon.woodColor;
+        plotLine(a.x, a.y, b.x, b.y, col, false);
+      }
+      // Brass reinforcement bands & flared dragon-mouth rim
+      for (const bx of [4.2, 7.6, 10.4]) {
+        const halfW = bx > 9 ? 2.4 : 1.9;
+        const bL = proj(bx + kick, -halfW);
+        const bR = proj(bx + kick, halfW);
+        plotLine(bL.x, bL.y, bR.x, bR.y, bx > 9 ? '#facc15' : '#b45309', bx > 9);
+      }
+      // Glowing ember core pulsing inside the muzzle as it charges!
+      const glowR = 1.1 + draw * 0.8 + (snapReady ? 0.5 : 0);
+      const emberCol = snapReady || draw > 0.78 ? '#fde047' : '#f97316';
+      plotDisc(mouth.x, mouth.y, glowR, emberCol);
+      plot(mouth.x, mouth.y, '#ffffff');
+      plot(rear.x, rear.y, '#78350f');
+      glintLocal = mouth;
+    } else if (wid === 'chakram') {
+      // SPINNING EMERALD RUNIC RING-BLADE pulling back on windup & lunging on throw!
+      const lunge = -draw * 2.4 + twang * 4.5 + recoil * 2.2;
+      const cxLocal = 7.8 + lunge;
+      const cyLocal = -1.2 + draw * 1.4;
+      const handPt = proj(cxLocal - 2.6, cyLocal);
+      const armPt = proj(3.4, -2.0);
+      plotLine(armPt.x, armPt.y, handPt.x, handPt.y, '#6b3e26', false);
+      plotDisc(handPt.x, handPt.y, 1.2, '#e6c3a5');
+
+      const center = proj(cxLocal, cyLocal);
+      const spin = time * (9 + draw * 12);
+      const rOuter = 4.6;
+      const rInner = 2.4;
+      for (let i = 0; i < 24; i++) {
+        const a = spin + (i / 24) * Math.PI * 2;
+        const rx = center.x + Math.cos(a) * rOuter;
+        const ry = center.y + Math.sin(a) * rOuter * 0.84;
+        const ix = center.x + Math.cos(a) * rInner;
+        const iy = center.y + Math.sin(a) * rInner * 0.84;
+        const isTooth = i % 6 === 0;
+        const col = isTooth ? '#ffffff' : i % 2 === 0 ? weapon.color : weapon.accentColor;
+        plot(rx, ry, col);
+        plot((rx + ix) * 0.5, (ry + iy) * 0.5, weapon.woodColor);
+        if (isTooth) {
+          plot(center.x + Math.cos(a) * (rOuter + 1.1), center.y + Math.sin(a) * (rOuter + 1.1) * 0.84, snapReady ? '#fde047' : '#a7f3d0');
+        }
+      }
+      glintLocal = center;
+    } else {
+      // ================================================================
+      // 5 DISTINCT FLEXING BOWS (Recurve, Frostfang, Greatbow, Soulweaver, Astral Twin)
+      // ================================================================
+      const isGreat = wid === 'greatbow';
+      const isFrost = wid === 'frostfang';
+      const isSoul = wid === 'soulweaver';
+      const isTwin = wid === 'astraltwin';
+
+      const halfSpan = isGreat ? 9.8 : isTwin ? 8.8 : isFrost ? 8.6 : 8.2;
+      const flexSpan = halfSpan * (1 - draw * 0.11);
+      const riserX = (isGreat ? 9.6 : 9.0) - recoil * 1.3;
+      const limbBend = 2.9 + draw * 2.8 - Math.sin(twang * Math.PI * 5) * twang * 0.9;
+
+      const bowLocal = (t) => {
+        const at = Math.abs(t);
+        // Classic recurve tip flare on non-greatbows
+        const flare = !isGreat && at > 0.7 ? ((at - 0.7) / 0.3) * 1.2 : 0;
+        return {
+          lx: riserX - limbBend * (t * t) + flare,
+          ly: t * flexSpan,
+        };
+      };
+
+      const topL = bowLocal(-1);
+      const botL = bowLocal(1);
+      const topTip = proj(topL.lx, topL.ly);
+      const botTip = proj(botL.lx, botL.ly);
+
+      // Bowstring pulls back into an unmistakable sharp V, and twangs forward on release!
+      const twangWave = twang > 0 ? Math.sin(twang * Math.PI * 6) * twang * 3.2 : 0;
+      const nockLocalX = topL.lx - draw * 6.0 + twangWave;
+      const nockPt = proj(nockLocalX, 0);
+
+      const stringColor = snapReady
+        ? '#fef08a'
+        : isFrost
+        ? '#e0f2fe'
+        : isSoul
+        ? '#f5d0fe'
+        : isTwin
+        ? '#fde047'
+        : '#f8fafc';
+      addStringLine(topTip.x, topTip.y, nockPt.x, nockPt.y, stringColor);
+      addStringLine(nockPt.x, nockPt.y, botTip.x, botTip.y, stringColor);
+
+      // Extended bow-arm forearm & grip hand at riser + rear drawing hand pulling string!
+      const shoulderBow = proj(4.0, -2.0);
+      const bowHand = proj(riserX - 0.7, -0.2);
+      plotLine(shoulderBow.x, shoulderBow.y, bowHand.x, bowHand.y, '#6b3e26', false);
+      plotDisc(bowHand.x, bowHand.y, 1.15, '#e6c3a5');
+
+      const drawHand = proj(nockLocalX - 0.5, 0.5);
+      plotDisc(drawHand.x, drawHand.y, 1.15, '#e6c3a5');
+
+      // Curved flexing bow limbs!
+      const woodBright = isGreat ? '#78350f' : isFrost ? '#38bdf8' : isSoul ? '#9333ea' : isTwin ? '#fde047' : '#b4693a';
+      const steps = 16;
+      let prevPt = null;
+      for (let i = 0; i <= steps; i++) {
+        const t = -1 + (i / steps) * 2;
+        const at = Math.abs(t);
+        const loc = bowLocal(t);
+        const pt = proj(loc.lx, loc.ly);
+
+        let limbCol = weapon.woodColor;
+        if (at < 0.18) limbCol = weapon.accentColor; // Wrapped grip / riser
+        else if (at > 0.78) limbCol = weapon.accentColor; // Tip horns / nocks
+        else if (at < 0.55) limbCol = woodBright;
+
+        if (prevPt) {
+          const isThick = isGreat || at < 0.62;
+          plotLine(prevPt.x, prevPt.y, pt.x, pt.y, limbCol, isThick);
+        }
+
+        // Weapon-specific silhouette flourishes on limbs!
+        if (isFrost && (i === 3 || i === 5 || i === 11 || i === 13)) {
+          // Jagged protruding frost ice-fangs along outer bow curve
+          const spike = proj(loc.lx + 1.8, loc.ly + (t < 0 ? -0.9 : 0.9));
+          plotLine(pt.x, pt.y, spike.x, spike.y, '#e0f2fe', false);
+        } else if (isGreat && (i === 2 || i === 14)) {
+          // Heavy iron-and-ember war-bands on Greatbow
+          const band = proj(loc.lx + 1.2, loc.ly);
+          plot(band.x, band.y, '#fb923c');
+        } else if (isSoul && (i === 1 || i === 15)) {
+          // Glowing violet spirit-horn tips
+          plot(pt.x, pt.y, '#f0abfc');
+          const horn = proj(loc.lx - 1.3, loc.ly + (t < 0 ? -1.1 : 1.1));
+          plot(horn.x, horn.y, '#e879f9');
+        } else if (isTwin && at > 0.25 && at < 0.92 && i % 2 === 0) {
+          // Celestial outer golden dual-wing arc!
+          const wing = proj(loc.lx + 1.9, loc.ly * 1.06);
+          plot(wing.x, wing.y, at > 0.65 ? '#e9d5ff' : '#fde047');
+        }
+        prevPt = pt;
+      }
+
+      // Highlight pixel on bow grip
+      const riserPt = proj(riserX + 0.5, 0);
+      plot(riserPt.x, riserPt.y, isTwin ? '#ffffff' : weapon.color);
+
+      // Visible nocked arrow(s)! Briefly absent for ~0.07s right after shot release
+      if (twang < 0.62) {
+        const arrowLen = isGreat ? 14.4 : 13.0;
+        const headX = Math.max(riserX + 2.8, nockLocalX + arrowLen);
+        const shaftCol = snapReady ? '#fef08a' : '#f1f5f9';
+        const tipCol = snapReady ? '#fde047' : weapon.color;
+        const fletchCol = snapReady ? '#fde047' : isGreat ? '#f97316' : weapon.color;
+
+        if (isTwin) {
+          const t1 = drawArrow(nockLocalX, headX, -1.45, '#f5d0fe', snapReady ? '#fde047' : '#e9d5ff', '#c084fc', false);
+          const t2 = drawArrow(nockLocalX, headX, 1.45, '#fef9c3', '#fde047', '#fde047', false);
+          glintLocal = { x: (t1.x + t2.x) * 0.5, y: (t1.y + t2.y) * 0.5 };
+        } else {
+          glintLocal = drawArrow(nockLocalX, headX, 0, shaftCol, tipCol, fletchCol, isGreat);
+        }
+      } else {
+        glintLocal = proj(riserX + 2.5, 0);
+      }
+    }
+
+    // Rasterize crisp 1px #0c0714 outlined pixel weapon into scratch canvas
+    const wCtx = this._wCtx;
+    wCtx.clearRect(0, 0, W, H);
+
+    // 1. Crisp 1px taut bowstring (with subtle dark backing only over empty background)
+    for (let i = 0; i < stringPixels.length; i++) {
+      const sp = stringPixels[i];
+      if (!grid[(sp.y + 1) * W + sp.x]) {
+        wCtx.fillStyle = '#0c0714';
+        wCtx.fillRect(sp.x, sp.y + 1, 1, 1);
+      }
+    }
+    for (let i = 0; i < stringPixels.length; i++) {
+      const sp = stringPixels[i];
+      wCtx.fillStyle = flash ? '#ffffff' : sp.color;
+      wCtx.fillRect(sp.x, sp.y, 1, 1);
+    }
+
+    // 2. Solid weapon parts + automatic 4-connected 1px #0c0714 outline
+    if (maxX >= minX) {
+      const xStart = Math.max(0, minX - 1);
+      const xEnd = Math.min(W - 1, maxX + 1);
+      const yStart = Math.max(0, minY - 1);
+      const yEnd = Math.min(H - 1, maxY + 1);
+
+      for (let y = yStart; y <= yEnd; y++) {
+        const row = y * W;
+        for (let x = xStart; x <= xEnd; x++) {
+          const col = grid[row + x];
+          if (col) {
+            wCtx.fillStyle = flash ? '#ffffff' : col;
+            wCtx.fillRect(x, y, 1, 1);
+          } else {
+            const hasNeighbor =
+              (x > 0 && grid[row + x - 1]) ||
+              (x < W - 1 && grid[row + x + 1]) ||
+              (y > 0 && grid[row - W + x]) ||
+              (y < H - 1 && grid[row + W + x]);
+            if (hasNeighbor) {
+              wCtx.fillStyle = '#0c0714';
+              wCtx.fillRect(x, y, 1, 1);
+            }
+          }
+        }
+      }
+    }
+
+    const drawX = Math.round(anchorX - CX);
+    const drawY = Math.round(anchorY - CY);
+    const prevAlpha = ctx.globalAlpha;
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(this._wCanvas, drawX, drawY);
+    ctx.globalAlpha = prevAlpha;
+
+    return {
+      x: anchorX + glintLocal.x,
+      y: anchorY + glintLocal.y,
+    };
   }
 
   _drawEnemy(ctx, e, time) {

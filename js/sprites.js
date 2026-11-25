@@ -112,8 +112,9 @@ function makeFlashStack(slices) {
 }
 
 // ======================================================
-// ARCHER STACK GENERATOR (Dynamic Armor + Weapon Layers!)
-// Facing +X (right) in local slice space
+// ARCHER STACK GENERATOR (Dynamic Armor Layers + Back Quiver!)
+// Facing +X (right) in local slice space; live animated weapon rig is
+// rendered dynamically in renderer.js so bow limbs flex & strings pull!
 // ======================================================
 export function buildArcherStack(armorId = 'ranger', weaponId = 'recurve') {
   const armor = ARMORS[armorId] || ARMORS.ranger;
@@ -128,123 +129,153 @@ export function buildArcherStack(armorId = 'ranger', weaponId = 'recurve') {
       bakeSlice(
         size,
         ({ px, rect, disc, ring, c }) => {
-          // Boots (z 0..2)
+          // Athletic staggered archer boots & greaves (z 0..3)
           if (z <= 2) {
-            rect(c - 1, c - 3.5, 3, 2, '#2d1f1b');
-            rect(c - 1, c + 1.5, 3, 2, '#2d1f1b');
+            // Lead bow-side foot braced forward (-Y), rear foot planted back (+Y)
+            rect(c + 0.2, c - 3.6, 3.0, 2.0, '#291a16');
+            rect(c - 2.0, c + 1.5, 3.0, 2.0, '#291a16');
             if (z === 2) {
-              rect(c - 1.5, c - 3, 3, 2, '#4a3228');
-              rect(c - 1.5, c + 1, 3, 2, '#4a3228');
+              rect(c - 0.2, c - 3.2, 2.8, 1.8, '#4a3228');
+              rect(c - 1.8, c + 1.3, 2.8, 1.8, '#4a3228');
             }
           }
-          // Lower cloak & tunic (z 3..6)
-          if (z >= 3 && z <= 6) {
-            const flare = 4.6 - (z - 3) * 0.35;
-            disc(c - 0.6, c, flare, armor.cloakDark);
-            disc(c + 0.4, c, flare - 1.1, armor.cloakMid);
-            // Cloak trailing tail (-X side)
-            rect(c - 5.5 + (z - 3) * 0.4, c - 2.5, 3, 5, armor.cloakDark);
-            // Belt + gold buckle at z=5
-            if (z === 5) {
-              disc(c + 0.4, c, 3.6, '#3b2416');
-              px(c + 3.8, c, armor.trim);
-            }
+          if (z === 3) {
+            // Fitted ranger trousers (sleek stance, no bulky wizard robe!)
+            rect(c - 0.4, c - 2.9, 2.6, 2.0, armor.cloakDark);
+            rect(c - 1.5, c + 0.9, 2.6, 2.0, armor.cloakDark);
+            rect(c - 1.2, c - 1.4, 2.8, 2.8, armor.cloakDark);
           }
-          // Upper torso, pauldrons, quiver on back, & weapon arm (z 7..10)
-          if (z >= 7 && z <= 10) {
-            disc(c, c, 3.8, armor.cloakMid);
-            // Shoulders / Pauldrons
-            disc(c + 0.2, c - 3.4, 2.1, armor.cloakLight);
-            disc(c + 0.2, c + 3.4, 2.1, armor.cloakLight);
-            if (z === 9 || z === 10) {
-              px(c + 0.5, c - 3.6, armor.trim);
-              px(c + 0.5, c + 3.6, armor.trim);
-            }
-            // Quiver strapped behind (-X)
-            rect(c - 4.8, c - 1.2, 2.5, 2.6, '#6b3e26');
-            if (z === 10) {
-              // Arrow fletchings sticking out!
-              px(c - 4.5, c - 1, weapon.color);
-              px(c - 3.8, c + 0.6, '#f8fafc');
-              px(c - 5, c + 0.3, weapon.color);
-            }
-            // Forward bow hand (+X)
-            rect(c + 3, c - 1, 2.5, 2, '#d6b49c');
 
-            // Weapon geometry on slices z 7..10!
-            if (z >= 7 && z <= 10) {
-              if (weaponId === 'arbalest') {
-                rect(c + 4, c - 0.8, 4.5, 1.8, weapon.woodColor);
-                if (z === 8 || z === 9) {
-                  rect(c + 6.5, c - 4.5, 1.5, 9, weapon.accentColor);
-                  px(c + 8.5, c, weapon.color);
-                }
-              } else if (weaponId === 'chakram') {
-                if (z === 8 || z === 9) {
-                  disc(c + 6.5, c, 3.0, weapon.accentColor);
-                  disc(c + 6.5, c, 1.4, weapon.color);
-                }
-              } else if (weaponId === 'dragoncannon') {
-                // Chunky brass-and-iron hand mortar barrel!
-                if (z >= 7 && z <= 10) {
-                  rect(c + 3.5, c - 1.8, 5.8, 3.6, weapon.woodColor);
-                  if (z === 8 || z === 9) {
-                    rect(c + 4.5, c - 1.3, 4.8, 2.6, '#78350f');
-                    rect(c + 8.2, c - 1.6, 1.4, 3.2, weapon.accentColor);
-                    px(c + 9.2, c, '#fde047');
-                  }
-                }
-              } else if (weaponId === 'astraltwin') {
-                // Celestial dual-wing bow!
-                for (let a = -5.2; a <= 5.2; a += 0.9) {
-                  const curve = (a * a) / 6.2;
-                  px(c + 6.2 - curve, c + a, z === 9 ? weapon.accentColor : weapon.woodColor);
-                  if (Math.abs(a) > 2.2) px(c + 7.2 - curve, c + a, weapon.color);
-                }
-                if (z === 8 || z === 9) {
-                  rect(c + 2.8, c - 1.2, 5.2, 1, weapon.color);
-                  rect(c + 2.8, c + 0.5, 5.2, 1, weapon.accentColor);
-                }
-              } else {
-                const bowSpan = weaponId === 'greatbow' ? 5.6 : weaponId === 'frostfang' ? 5.0 : 4.4;
-                const bowX = c + (weaponId === 'greatbow' ? 6.2 : 5.5);
-                for (let a = -bowSpan; a <= bowSpan; a += 0.9) {
-                  const curve = (a * a) / (bowSpan * 1.4);
-                  px(bowX - curve, c + a, z === 9 ? weapon.accentColor : weapon.woodColor);
-                }
-                if (z === 8 || z === 9) {
-                  rect(c + 2.5, c - 0.4, 5.2, 1, weapon.color);
-                }
+          // Sleek belted ranger tunic & short split half-cape (z 4..6)
+          if (z >= 4 && z <= 6) {
+            const waistR = 3.4 - (z - 4) * 0.22;
+            disc(c - 0.1, c, waistR, armor.cloakDark);
+            disc(c + 0.4, c, waistR - 0.9, armor.cloakMid);
+            // Narrow short scout half-cape fluttering behind (-X)
+            rect(c - 4.7 + (z - 4) * 0.35, c - 1.6, 2.2, 3.4, armor.cloakDark);
+            // Distinct leather ranger belt + brass buckle + hip pouch at z=5
+            if (z === 5) {
+              disc(c + 0.2, c, 3.3, '#472a18');
+              rect(c + 2.6, c - 0.8, 1.2, 1.6, armor.trim);
+              rect(c - 1.0, c + 2.3, 1.8, 1.4, '#6b3e26');
+            }
+            // Frostweave lower frost trim / Ashwalker ember edge on tunic hem
+            if (z === 4 && armorId === 'ashwalker') {
+              px(c - 4.5, c - 0.8, '#fb923c');
+              px(c - 4.5, c + 0.8, '#fb923c');
+            }
+          }
+
+          // Upper torso, diagonal quiver strap, asymmetric bow-arm pauldron & bracer (z 7..10)
+          if (z >= 7 && z <= 10) {
+            disc(c, c, 3.25, armor.cloakMid);
+            // Chest armor highlight / leather jerkin front
+            rect(c + 0.8, c - 1.6, 2.1, 3.2, armor.cloakLight);
+            // Diagonal leather quiver chest-strap across torso
+            if (z === 8 || z === 9) {
+              px(c + 2.4, c - 1.2, '#5c341d');
+              px(c + 2.5, c, '#5c341d');
+              px(c + 2.2, c + 1.1, armor.trim);
+            }
+            // Asymmetric archer shoulders:
+            // Lead bow-arm shoulder (-Y): reinforced archer pauldron + leather bracer
+            disc(c + 0.6, c - 3.1, 2.05, armor.cloakLight);
+            if (z === 9 || z === 10) {
+              px(c + 1.1, c - 3.4, armor.trim);
+              px(c + 0.2, c - 3.8, armor.trim);
+            }
+            // Extended bow-arm forearm & leather armguard reaching forward (+X, -Y)
+            if (z === 8 || z === 9) {
+              rect(c + 2.1, c - 2.6, 2.4, 1.6, '#6b3e26');
+              px(c + 4.4, c - 1.9, '#e6c3a5');
+            }
+            // Rear drawing-arm shoulder (+Y): sleeker, unencumbered for bow draw
+            disc(c - 0.4, c + 2.8, 1.65, armor.cloakMid);
+            if (z === 9) {
+              px(c - 0.2, c + 3.1, armor.trim);
+            }
+          }
+
+          // Prominent angled leather back-quiver (z 7..10) + feathered arrow fletchings (z 9..13)!
+          if (z >= 7 && z <= 10) {
+            const qx = c - 3.9 - (z - 7) * 0.35;
+            const qy = c - 1.1 - (z - 7) * 0.35;
+            rect(qx - 1.1, qy - 1.1, 2.4, 2.4, '#6b3e26');
+            px(qx + 0.4, qy - 0.4, '#9a5833');
+            if (z === 10) {
+              // Brass quiver mouth rim
+              px(qx + 0.8, qy - 0.8, armor.trim);
+              px(qx - 0.8, qy + 0.8, armor.trim);
+            }
+          }
+          if (z >= 9 && z <= 13) {
+            // 3 angled arrow shafts & bright feathered fletchings rising cleanly behind shoulder!
+            const step = z - 9;
+            const fx = c - 4.7 - step * 0.42;
+            const fy = c - 2.0 - step * 0.32;
+            // Shafts at z 9..10, bright feathered fletchings fanning out at z 10..13
+            if (z <= 10) {
+              px(fx + 0.4, fy + 0.5, '#cbd5e1');
+              px(fx - 0.5, fy + 1.6, '#e2e8f0');
+              px(fx + 1.1, fy - 0.4, '#cbd5e1');
+            }
+            if (z >= 10) {
+              const featherMain = weapon.color || '#67e8f9';
+              const featherAlt = z % 2 === 0 ? '#f8fafc' : weapon.accentColor || '#fde047';
+              // Primary outer fletching
+              px(fx, fy, featherMain);
+              px(fx - 0.9, fy + 0.6, featherAlt);
+              // Second arrow fletching
+              px(fx - 0.7, fy + 1.7, featherMain);
+              if (z <= 12) px(fx + 0.2, fy + 1.3, '#f8fafc');
+              // Third arrow fletching
+              if (z >= 11) {
+                px(fx + 1.0, fy - 0.6, featherAlt);
+                px(fx + 0.3, fy - 0.9, featherMain);
               }
             }
           }
-          // Hooded Mysterious Head & Glowing Eyes (z 11..14)
+
+          // Hooded Ranger Head, Glowing Eyes & Armor Set Landmarks (z 11..14)
           if (z >= 11) {
-            const hr = 3.5 - (z - 11) * 0.55;
-            disc(c - 0.2, c, hr, armor.hood);
+            const hr = 3.35 - (z - 11) * 0.52;
+            disc(c - 0.1, c, hr, armor.hood);
             if (z === 11 || z === 12) {
-              rect(c + 1.1, c - 1.8, 2.1, 3.6, '#0d0714');
+              rect(c + 1.1, c - 1.7, 2.0, 3.4, '#0d0714');
               if (z === 12) {
-                px(c + 2.6, c - 1.0, armor.trim);
-                px(c + 2.6, c + 1.0, armor.trim);
+                px(c + 2.5, c - 0.9, armor.trim);
+                px(c + 2.5, c + 0.9, armor.trim);
               }
+            }
+            // Ranger cowl gold brow trim & hood point
+            if (armorId === 'ranger' && z === 13) {
+              px(c + 1.6, c, armor.trim);
+            }
+            // Ashwalker smoldering hood crest
+            if (armorId === 'ashwalker' && z === 14) {
+              px(c + 0.6, c, '#fb923c');
+              px(c - 1.2, c, '#f97316');
+            }
+            // Nightstalker stealth cowl visor & headband crest
+            if (armorId === 'nightstalker' && z === 13) {
+              rect(c + 1.2, c - 1.4, 1.0, 2.8, '#38bdf8');
             }
             // Ossuary bone horns
             if (armorId === 'ossuary' && z >= 13) {
-              px(c + 0.5, c - 3.6, '#f5f5f4');
-              px(c + 0.5, c + 3.6, '#f5f5f4');
+              px(c + 0.5, c - 3.5, '#f5f5f4');
+              px(c + 0.5, c + 3.5, '#f5f5f4');
               if (z === 14) {
-                px(c + 1.4, c - 4.2, '#e7e5e4');
-                px(c + 1.4, c + 4.2, '#e7e5e4');
+                px(c + 1.4, c - 4.1, '#e7e5e4');
+                px(c + 1.4, c + 4.1, '#e7e5e4');
               }
             }
             // Bloodplate vampire bat-wings on helm!
             if (armorId === 'bloodplate' && z >= 12) {
-              rect(c - 1.2, c - 4.8, 2.2, 1.5, '#f43f5e');
-              rect(c - 1.2, c + 3.3, 2.2, 1.5, '#f43f5e');
+              rect(c - 1.2, c - 4.7, 2.2, 1.5, '#f43f5e');
+              rect(c - 1.2, c + 3.2, 2.2, 1.5, '#f43f5e');
               if (z === 14) {
-                px(c - 2.0, c - 5.2, '#fbbf24');
-                px(c - 2.0, c + 5.2, '#fbbf24');
+                px(c - 2.0, c - 5.1, '#fbbf24');
+                px(c - 2.0, c + 5.1, '#fbbf24');
               }
             }
             // Seraphim floating golden halo!
@@ -255,12 +286,13 @@ export function buildArcherStack(armorId = 'ranger', weaponId = 'recurve') {
             if (armorId === 'stormcaller' && z === 14) {
               rect(c - 2.2, c - 0.6, 4.4, 1.2, '#fde047');
             }
-            // Frostweave snowy fur trim
+            // Frostweave snowy fur collar trim
             if (armorId === 'frostweave' && z === 11) {
-              ring(c, c, 3.8, 2.7, '#f0f9ff');
+              ring(c, c, 3.6, 2.5, '#f0f9ff');
             }
+            // Pointed ranger hood tail (-X)
             if (z >= 13 && armorId !== 'seraphim') {
-              rect(c - 3.6, c - 1.2, 2.5, 2.4, armor.cloakLight);
+              rect(c - 3.3, c - 1.0, 2.2, 2.0, armor.cloakLight);
             }
           }
         },

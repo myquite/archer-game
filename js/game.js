@@ -99,7 +99,10 @@ export class ArcherGame {
       weaponId: 'recurve',
       armorId: 'ranger',
       fireTimer: 0,
+      fireCooldownMax: 0.38,
       tension: 0,
+      drawPhase: 0.55,
+      stringTwang: 0,
       recoil: 0,
       invuln: 0,
       hurtFlash: 0,
@@ -256,6 +259,8 @@ export class ArcherGame {
     this.player.vy = 0;
     this.player.facing = -Math.PI / 2;
     this.player.tension = 0;
+    this.player.drawPhase = 0.45;
+    this.player.stringTwang = 0;
     this.player.stillTime = 0;
     this.player.stillAnchorX = this.player.x;
     this.player.stillAnchorY = this.player.y;
@@ -898,6 +903,7 @@ export class ArcherGame {
     if (p.invuln > 0) p.invuln -= dt;
     if (p.hurtFlash > 0) p.hurtFlash -= dt;
     if (p.recoil > 0) p.recoil = Math.max(0, p.recoil - dt * 3.8);
+    if (p.stringTwang > 0) p.stringTwang = Math.max(0, p.stringTwang - dt / 0.18);
     if (this.frenzyTimer > 0) this.frenzyTimer = Math.max(0, this.frenzyTimer - dt);
 
     const inp = this._moveInput();
@@ -1068,8 +1074,34 @@ export class ArcherGame {
       const isSnap = !moving && p.tension >= 0.72;
       this._firePlayerVolley(weapon, isSnap, moving, false);
       const effectiveRate = weapon.fireRate * p.mods.fireRateMult * (isSnap ? 0.85 : 1.0);
-      p.fireTimer = 1 / effectiveRate;
+      p.fireCooldownMax = 1 / effectiveRate;
+      p.fireTimer = p.fireCooldownMax;
       if (isSnap) p.tension = 0; // Consumes Momentum charge — kite again to charge your next Snap!
+    }
+
+    // Smooth animated bow draw phase (0.15 -> 1.0 between shots; holds deep draw when Snap is charged!)
+    let targetDraw = 0.15;
+    if (p.dashTimer > 0) {
+      targetDraw = 0.05;
+    } else if (this.aimTarget) {
+      const cdMax = Math.max(0.12, p.fireCooldownMax || 1 / (weapon.fireRate * p.mods.fireRateMult));
+      const progress = 1 - Math.max(0, Math.min(1, p.fireTimer / cdMax));
+      const eased = 1 - Math.pow(1 - progress, 1.65);
+      targetDraw = 0.15 + eased * 0.85;
+      if (p.tension >= 0.72) {
+        targetDraw = Math.max(targetDraw, 0.96);
+      } else if (p.tension > 0.18) {
+        targetDraw = Math.max(targetDraw, 0.24 + p.tension * 0.68);
+      }
+    } else if (p.tension > 0.12) {
+      targetDraw = 0.15 + p.tension * 0.82;
+    }
+
+    if (p.stringTwang > 0.62) {
+      p.drawPhase = Math.max(0, p.drawPhase - dt * 16);
+    } else {
+      const pullRate = targetDraw > p.drawPhase ? 13 : 8;
+      p.drawPhase += (targetDraw - p.drawPhase) * Math.min(1, dt * pullRate);
     }
 
     if (this.roomCleared && this.portal) {
@@ -1088,6 +1120,8 @@ export class ArcherGame {
     const hasPhantom = p.evolutions.has('phantom_volley');
 
     sfx.shoot(isSnap, weapon.id);
+    p.drawPhase = 0;
+    p.stringTwang = 1.0;
     p.recoil = isSnap ? 1.0 : 0.55;
     if (isSnap) {
       this.shake = Math.max(this.shake, 1.8);
