@@ -406,11 +406,21 @@ html, body {
   margin: 0 auto;
 }
 
+.title-emblem-img {
+  display: block;
+  width: 64px;
+  height: 64px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  border: 2px solid var(--gold);
+  box-shadow: 0 3px 0 #090410, 0 0 14px rgba(77, 238, 255, 0.28);
+}
+
 .game-title {
   margin: 0;
-  font-size: 38px;
+  font-size: clamp(26px, 8vw, 34px);
   font-weight: 900;
-  letter-spacing: 5px;
+  letter-spacing: 4px;
   color: var(--gold);
   text-shadow: 0 3px 0 #78350f, 0 5px 0 #090410;
 }
