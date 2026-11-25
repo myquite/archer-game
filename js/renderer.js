@@ -206,7 +206,7 @@ export class GameRenderer {
     }
 
     // Hanging tattered medieval banners along North wall
-    const bannerColor = biome.minFloor === 4 ? '#15803d' : biome.minFloor === 7 ? '#b91c1c' : biome.minFloor === 10 ? '#7e22ce' : '#581c87';
+    const bannerColor = biome.bannerColor || '#581c87';
     const bannerTrim = '#eab308';
     const bannerXs = [68, 126, arenaW - 126, arenaW - 68];
     for (const bx of bannerXs) {

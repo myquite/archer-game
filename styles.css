@@ -398,9 +398,58 @@ html, body {
 .title-sub {
   font-size: 11px;
   font-weight: 800;
-  letter-spacing: 2.5px;
+  letter-spacing: 2.2px;
   color: #c4b5fd;
   margin-top: -6px;
+}
+
+.chapter-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 2px 0;
+}
+
+.chapter-pills {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 5px;
+}
+
+.ch-btn {
+  background: rgba(12, 7, 20, 0.75);
+  border: 1.5px solid #483169;
+  border-radius: 8px;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 7px 2px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  touch-action: manipulation;
+}
+
+.ch-btn .ch-ico {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.ch-btn.active {
+  border-color: var(--gold);
+  background: linear-gradient(180deg, #4b2d75 0%, #271540 100%);
+  color: var(--gold);
+  box-shadow: 0 0 10px rgba(250, 204, 21, 0.25);
+}
+
+.chapter-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  color: #fde68a;
 }
 
 .pill-tips {

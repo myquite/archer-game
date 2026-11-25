@@ -174,27 +174,44 @@ export function buildArcherStack(armorId = 'ranger', weaponId = 'recurve') {
             // Weapon geometry on slices z 7..10!
             if (z >= 7 && z <= 10) {
               if (weaponId === 'arbalest') {
-                // Crossbow stock + wide limbs
                 rect(c + 4, c - 0.8, 4.5, 1.8, weapon.woodColor);
                 if (z === 8 || z === 9) {
                   rect(c + 6.5, c - 4.5, 1.5, 9, weapon.accentColor);
                   px(c + 8.5, c, weapon.color);
                 }
               } else if (weaponId === 'chakram') {
-                // Glowing ring blade held forward
                 if (z === 8 || z === 9) {
                   disc(c + 6.5, c, 3.0, weapon.accentColor);
                   disc(c + 6.5, c, 1.4, weapon.color);
                 }
+              } else if (weaponId === 'dragoncannon') {
+                // Chunky brass-and-iron hand mortar barrel!
+                if (z >= 7 && z <= 10) {
+                  rect(c + 3.5, c - 1.8, 5.8, 3.6, weapon.woodColor);
+                  if (z === 8 || z === 9) {
+                    rect(c + 4.5, c - 1.3, 4.8, 2.6, '#78350f');
+                    rect(c + 8.2, c - 1.6, 1.4, 3.2, weapon.accentColor);
+                    px(c + 9.2, c, '#fde047');
+                  }
+                }
+              } else if (weaponId === 'astraltwin') {
+                // Celestial dual-wing bow!
+                for (let a = -5.2; a <= 5.2; a += 0.9) {
+                  const curve = (a * a) / 6.2;
+                  px(c + 6.2 - curve, c + a, z === 9 ? weapon.accentColor : weapon.woodColor);
+                  if (Math.abs(a) > 2.2) px(c + 7.2 - curve, c + a, weapon.color);
+                }
+                if (z === 8 || z === 9) {
+                  rect(c + 2.8, c - 1.2, 5.2, 1, weapon.color);
+                  rect(c + 2.8, c + 0.5, 5.2, 1, weapon.accentColor);
+                }
               } else {
-                // Curved bow arc (Greatbow is extra wide!)
-                const bowSpan = weaponId === 'greatbow' ? 5.6 : 4.4;
-                const bowX = c + (weaponId === 'greatbow' ? 6.2 : 5.4);
+                const bowSpan = weaponId === 'greatbow' ? 5.6 : weaponId === 'frostfang' ? 5.0 : 4.4;
+                const bowX = c + (weaponId === 'greatbow' ? 6.2 : 5.5);
                 for (let a = -bowSpan; a <= bowSpan; a += 0.9) {
                   const curve = (a * a) / (bowSpan * 1.4);
                   px(bowX - curve, c + a, z === 9 ? weapon.accentColor : weapon.woodColor);
                 }
-                // Glowing nocked arrow on slice 8-9
                 if (z === 8 || z === 9) {
                   rect(c + 2.5, c - 0.4, 5.2, 1, weapon.color);
                 }
@@ -205,16 +222,14 @@ export function buildArcherStack(armorId = 'ranger', weaponId = 'recurve') {
           if (z >= 11) {
             const hr = 3.5 - (z - 11) * 0.55;
             disc(c - 0.2, c, hr, armor.hood);
-            // Shadowed face interior at z=11..12
             if (z === 11 || z === 12) {
               rect(c + 1.1, c - 1.8, 2.1, 3.6, '#0d0714');
-              // Mysterious glowing eyes!
               if (z === 12) {
                 px(c + 2.6, c - 1.0, armor.trim);
                 px(c + 2.6, c + 1.0, armor.trim);
               }
             }
-            // Ossuary armor adds badass bone horns on z=13..14!
+            // Ossuary bone horns
             if (armorId === 'ossuary' && z >= 13) {
               px(c + 0.5, c - 3.6, '#f5f5f4');
               px(c + 0.5, c + 3.6, '#f5f5f4');
@@ -223,8 +238,28 @@ export function buildArcherStack(armorId = 'ranger', weaponId = 'recurve') {
                 px(c + 1.4, c + 4.2, '#e7e5e4');
               }
             }
-            // Hood peak trailing slightly back
-            if (z >= 13) {
+            // Bloodplate vampire bat-wings on helm!
+            if (armorId === 'bloodplate' && z >= 12) {
+              rect(c - 1.2, c - 4.8, 2.2, 1.5, '#f43f5e');
+              rect(c - 1.2, c + 3.3, 2.2, 1.5, '#f43f5e');
+              if (z === 14) {
+                px(c - 2.0, c - 5.2, '#fbbf24');
+                px(c - 2.0, c + 5.2, '#fbbf24');
+              }
+            }
+            // Seraphim floating golden halo!
+            if (armorId === 'seraphim' && z === 14) {
+              ring(c, c, 4.1, 2.9, '#fde047');
+            }
+            // Stormcaller golden lightning crest
+            if (armorId === 'stormcaller' && z === 14) {
+              rect(c - 2.2, c - 0.6, 4.4, 1.2, '#fde047');
+            }
+            // Frostweave snowy fur trim
+            if (armorId === 'frostweave' && z === 11) {
+              ring(c, c, 3.8, 2.7, '#f0f9ff');
+            }
+            if (z >= 13 && armorId !== 'seraphim') {
               rect(c - 3.6, c - 1.2, 2.5, 2.4, armor.cloakLight);
             }
           }
@@ -422,14 +457,135 @@ function buildHellguardStack() {
   return { slices, flash: makeFlashStack(slices), size: size + 4 };
 }
 
+function buildCultistStack() {
+  const size = 16;
+  const totalLayers = 14;
+  const slices = [];
+  for (let z = 0; z < totalLayers; z++) {
+    slices.push(
+      bakeSlice(
+        size,
+        ({ px, rect, disc, c }) => {
+          if (z <= 5) {
+            // Wide dark necromancer robes
+            const r = 4.2 - z * 0.2;
+            disc(c, c, r, '#3b0764');
+            disc(c + 0.4, c, r - 1.2, '#581c87');
+          } else if (z <= 9) {
+            disc(c, c, 3.1, '#6b21a8');
+            // Golden ritual shoulder trim
+            if (z === 9) {
+              disc(c, c - 3, 1.5, '#eab308');
+              disc(c, c + 3, 1.5, '#eab308');
+            }
+            // Glowing necromancer staff (+X, +Y)
+            rect(c + 3.2, c + 2.2, 1.8, 1.8, '#78350f');
+            if (z === 9) disc(c + 4.2, c + 3.0, 1.6, '#e879f9');
+          } else {
+            const hr = 2.8 - (z - 10) * 0.5;
+            disc(c, c, hr, '#4c1d95');
+            if (z === 11) {
+              px(c + 2.1, c - 0.9, '#f0abfc');
+              px(c + 2.1, c + 0.9, '#f0abfc');
+            }
+          }
+        },
+        z / (totalLayers - 1)
+      )
+    );
+  }
+  return { slices, flash: makeFlashStack(slices), size: size + 4 };
+}
+
+function buildBomberStack() {
+  const size = 15;
+  const totalLayers = 11;
+  const slices = [];
+  for (let z = 0; z < totalLayers; z++) {
+    slices.push(
+      bakeSlice(
+        size,
+        ({ px, disc, c }) => {
+          if (z <= 1) {
+            px(c, c - 2.2, '#451a03');
+            px(c, c + 2.2, '#451a03');
+          } else if (z <= 8) {
+            // Swollen glowing magma belly
+            const r = 3.2 + Math.sin(((z - 2) / 6) * Math.PI) * 1.4;
+            disc(c, c, r, '#9a3412');
+            disc(c + 0.4, c, r - 1.1, '#f97316');
+            if (z === 5 || z === 6) disc(c + 1.2, c, 1.6, '#fde047');
+            if (z === 7) {
+              px(c + 2.8, c - 1, '#ffffff');
+              px(c + 2.8, c + 1, '#ffffff');
+            }
+          } else {
+            // Burning fuse spark on top!
+            disc(c, c, z === 9 ? 1.8 : 1.1, z === 9 ? '#facc15' : '#ffffff');
+          }
+        },
+        z / (totalLayers - 1)
+      )
+    );
+  }
+  return { slices, flash: makeFlashStack(slices), size: size + 4 };
+}
+
+function buildWraithStack() {
+  const size = 16;
+  const totalLayers = 14;
+  const slices = [];
+  for (let z = 0; z < totalLayers; z++) {
+    slices.push(
+      bakeSlice(
+        size,
+        ({ px, rect, disc, c }) => {
+          if (z <= 2) {
+            // Floating icy wisps instead of boots!
+            disc(c - 0.5, c, 1.4 + z * 0.4, '#0284c7');
+          } else if (z <= 8) {
+            const r = 3.5 - Math.abs(z - 5) * 0.25;
+            disc(c, c, r, '#0369a1');
+            disc(c + 0.3, c, r - 1.0, '#38bdf8');
+            if (z >= 6) {
+              rect(c + 2.2, c - 3.2, 2.8, 1.3, '#7dd3fc');
+              rect(c + 2.2, c + 1.9, 2.8, 1.3, '#7dd3fc');
+            }
+          } else if (z <= 12) {
+            disc(c, c, 2.9 - (z - 9) * 0.4, '#bae6fd');
+            if (z === 10) {
+              px(c + 2.3, c - 1, '#ffffff');
+              px(c + 2.3, c + 1, '#ffffff');
+            }
+          } else {
+            // Jagged ice crystal crown!
+            px(c, c - 2.4, '#e0f2fe');
+            px(c, c + 2.4, '#e0f2fe');
+            px(c + 1, c, '#ffffff');
+          }
+        },
+        z / (totalLayers - 1)
+      )
+    );
+  }
+  return { slices, flash: makeFlashStack(slices), size: size + 4 };
+}
+
 function buildBossStack(variant = 'warden') {
-  const isFire = variant === 'inquisitor';
+  const palettes = {
+    warden:     { layers: 20, dark: '#1e1b4b', mid: '#312e81', trim: '#e2e8f0', glow: '#38bdf8', horn: '#f1f5f9' },
+    matriarch:  { layers: 21, dark: '#14532d', mid: '#166534', trim: '#bef264', glow: '#4ade80', horn: '#a3e635' },
+    inquisitor: { layers: 21, dark: '#450a0a', mid: '#7f1d1d', trim: '#fb923c', glow: '#fde047', horn: '#f97316' },
+    lich:       { layers: 21, dark: '#0c4a6e', mid: '#0369a1', trim: '#bae6fd', glow: '#e0f2fe', horn: '#7dd3fc' },
+    overlord:   { layers: 22, dark: '#2e1065', mid: '#581c87', trim: '#f43f5e', glow: '#fde047', horn: '#e879f9' },
+  };
+  const pal = palettes[variant] || palettes.warden;
   const size = 28;
-  const totalLayers = isFire ? 21 : 20;
-  const bodyDark = isFire ? '#450a0a' : '#1e1b4b';
-  const bodyMid = isFire ? '#7f1d1d' : '#312e81';
-  const trim = isFire ? '#fb923c' : '#e2e8f0';
-  const glow = isFire ? '#fde047' : '#38bdf8';
+  const totalLayers = pal.layers;
+  const bodyDark = pal.dark;
+  const bodyMid = pal.mid;
+  const trim = pal.trim;
+  const glow = pal.glow;
 
   const slices = [];
   for (let z = 0; z < totalLayers; z++) {
@@ -438,34 +594,24 @@ function buildBossStack(variant = 'warden') {
         size,
         ({ px, rect, disc, c }) => {
           if (z <= 3) {
-            // Heavy armored boots / tattered robe hem
             disc(c, c, 7.2 - z * 0.25, bodyDark);
             rect(c - 2, c - 5.5, 4.5, 3, '#18181b');
             rect(c - 2, c + 2.5, 4.5, 3, '#18181b');
           } else if (z <= 13) {
-            // Hulking torso & rib/plate armor
             disc(c, c, 6.8, bodyMid);
             disc(c + 1.2, c, 4.5, bodyDark);
-            if (z % 2 === 0) {
-              // Ribcage / molten chest bars
-              rect(c + 4.5, c - 3.2, 2, 6.4, trim);
-            }
-            // Massive shoulders
+            if (z % 2 === 0) rect(c + 4.5, c - 3.2, 2, 6.4, trim);
             if (z >= 9) {
               disc(c, c - 6.8, 3.4, trim);
               disc(c, c + 6.8, 3.4, trim);
               disc(c, c - 6.8, 2.0, bodyMid);
               disc(c, c + 6.8, 2.0, bodyMid);
             }
-            // Giant Halberd / War-Hammer protruding forward
             if (z >= 8 && z <= 12) {
               rect(c + 5, c + 4.5, 7.5, 2.0, '#78716c');
-              if (z >= 9 && z <= 11) {
-                rect(c + 9.5, c + 1.5, 3.5, 6.5, glow);
-              }
+              if (z >= 9 && z <= 11) rect(c + 9.5, c + 1.5, 3.5, 6.5, glow);
             }
           } else if (z <= 17) {
-            // Towering Skull / Iron Mask
             const r = 4.6 - (z - 14) * 0.45;
             disc(c + 0.5, c, r, trim);
             if (z === 15 || z === 16) {
@@ -473,14 +619,11 @@ function buildBossStack(variant = 'warden') {
               rect(c + 3.4, c + 0.8, 1.8, 1.6, glow);
             }
           } else {
-            // Massive Crown / Demon Antlers (layers 18..20 peel when armor breaks!)
             for (const dir of [-1, 1]) {
               const offset = (z - 17) * 1.4;
-              disc(c - 0.5 + offset * 0.4, c + dir * (3.6 + offset), 1.5, isFire ? '#f97316' : '#f1f5f9');
+              disc(c - 0.5 + offset * 0.4, c + dir * (3.6 + offset), 1.5, pal.horn);
             }
-            if (z === 18) {
-              disc(c + 0.5, c, 2.8, glow);
-            }
+            if (z === 18) disc(c + 0.5, c, 2.8, glow);
           }
         },
         z / (totalLayers - 1)
@@ -623,9 +766,15 @@ export class SpriteBank {
     this.cache.set('bone_archer', buildSkeletonStack(true));
     this.cache.set('imp', buildImpStack());
     this.cache.set('ghoul', buildGhoulStack());
+    this.cache.set('cultist', buildCultistStack());
+    this.cache.set('bomber', buildBomberStack());
+    this.cache.set('wraith', buildWraithStack());
     this.cache.set('hellguard', buildHellguardStack());
     this.cache.set('boss_warden', buildBossStack('warden'));
+    this.cache.set('boss_matriarch', buildBossStack('matriarch'));
     this.cache.set('boss_inquisitor', buildBossStack('inquisitor'));
+    this.cache.set('boss_lich', buildBossStack('lich'));
+    this.cache.set('boss_overlord', buildBossStack('overlord'));
     this.cache.set('pillar', buildPillarStack());
     this.cache.set('brazier', buildBrazierStack());
     this.cache.set('barrel', buildBarrelStack());

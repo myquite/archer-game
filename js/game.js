@@ -9,6 +9,7 @@ import {
   UPGRADES,
   EVOLUTIONS,
   RELICS,
+  BIOMES,
   ENEMY_DEFS,
   CURSED_PACTS,
   getBiomeForFloor,
@@ -170,12 +171,42 @@ export class ArcherGame {
     this._setupFloor(1, 'combat');
   }
 
-  startRun() {
+  startRun(chapter = 1) {
     sfx.init();
     sfx.doorOpen();
     this.resetRun();
-    this.state = 'playing';
+    const biome = BIOMES[Math.max(0, Math.min(BIOMES.length - 1, chapter - 1))];
+    this.gold = biome.startGold;
+    if (biome.chapter > 1) {
+      // Scale starter power cleanly when jumping straight into higher chapters!
+      const boost = biome.chapter - 1;
+      this.player.mods.damageMult *= 1 + boost * 0.35;
+      this.player.mods.fireRateMult *= 1 + boost * 0.12;
+      this.player.maxHp += boost * 20;
+      this.player.hp = this.player.maxHp;
+      this.rerolls += 1;
+      this._setupFloor(biome.minFloor, 'combat');
+      this.state = 'playing';
+      this._openUpgradeDraft(); // 1 immediate draft to kickstart your build!
+    } else {
+      this.state = 'playing';
+    }
     this.ui.syncHud(this);
+  }
+
+  _recordBestFloor(floor) {
+    try {
+      const prev = parseInt(localStorage.getItem('archer_best_floor') || '1', 10);
+      if (floor > prev) localStorage.setItem('archer_best_floor', String(floor));
+    } catch (_) {}
+  }
+
+  getBestFloor() {
+    try {
+      return parseInt(localStorage.getItem('archer_best_floor') || '1', 10);
+    } catch (_) {
+      return 1;
+    }
   }
 
   // ======================================================
@@ -183,6 +214,7 @@ export class ArcherGame {
   // ======================================================
   _setupFloor(floor, roomType = 'combat') {
     this.floor = floor;
+    this._recordBestFloor(floor);
     this.roomType = roomType;
     this.biome = getBiomeForFloor(floor);
 
@@ -240,13 +272,16 @@ export class ArcherGame {
     const cx = this.arenaW / 2;
     const cy = this.arenaH / 2;
 
-    const brazierPts = [
-      [cx - 92, cy - 82],
-      [cx + 92, cy - 82],
-      [cx - 92, cy + 78],
-      [cx + 92, cy + 78],
+    // 8 Handcrafted Dungeon Arena Layouts!
+    const layoutIdx = (this.floor - 1) % 8;
+
+    const brazierSets = [
+      [[cx - 92, cy - 82], [cx + 92, cy - 82], [cx - 92, cy + 78], [cx + 92, cy + 78]],
+      [[cx, cy - 115], [cx - 102, cy], [cx + 102, cy], [cx, cy + 105]],
+      [[cx - 80, cy - 125], [cx + 80, cy - 125], [cx - 80, cy + 95], [cx + 80, cy + 95]],
+      [[cx - 54, cy - 54], [cx + 54, cy - 54], [cx - 54, cy + 54], [cx + 54, cy + 54]],
     ];
-    for (const [x, y] of brazierPts) {
+    for (const [x, y] of brazierSets[layoutIdx % brazierSets.length]) {
       this.props.push({ type: 'brazier', x, y, radius: 9, alive: true, solid: true, wobble: 0, flash: 0 });
     }
 
@@ -254,22 +289,27 @@ export class ArcherGame {
       [[cx - 56, cy - 18], [cx + 56, cy - 18]],
       [[cx - 72, cy - 120], [cx + 72, cy - 120], [cx, cy + 28]],
       [[cx - 64, cy + 12], [cx + 64, cy + 12], [cx - 64, cy - 125], [cx + 64, cy - 125]],
+      [[cx, cy - 14], [cx - 96, cy - 84], [cx + 96, cy - 84]],
+      [[cx - 48, cy - 92], [cx + 48, cy - 92], [cx - 88, cy + 44], [cx + 88, cy + 44]],
+      [[cx - 74, cy - 42], [cx + 74, cy - 42], [cx - 74, cy + 58], [cx + 74, cy + 58]],
+      [[cx - 42, cy - 120], [cx + 42, cy - 120], [cx - 104, cy - 12], [cx + 104, cy - 12]],
+      [[cx, cy - 96], [cx - 64, cy + 8], [cx + 64, cy + 8], [cx, cy + 92]],
     ];
-    const layout = pillarLayouts[(this.floor - 1) % pillarLayouts.length];
-    for (const [x, y] of layout) {
-      this.props.push({ type: 'pillar', x, y, radius: 10, hp: 110, maxHp: 110, alive: true, solid: true, wobble: 0, flash: 0 });
+    for (const [x, y] of pillarLayouts[layoutIdx]) {
+      this.props.push({ type: 'pillar', x, y, radius: 10, hp: 115, maxHp: 115, alive: true, solid: true, wobble: 0, flash: 0 });
     }
 
-    const barrelPts = [
-      [cx, cy - 82],
-      [cx - 115, cy + 8],
-      [cx + 115, cy + 8],
+    const barrelLayouts = [
+      [[cx, cy - 82], [cx - 115, cy + 8], [cx + 115, cy + 8]],
+      [[cx - 48, cy - 35], [cx + 48, cy - 35], [cx, cy + 72], [cx, cy - 135]],
+      [[cx - 108, cy - 90], [cx + 108, cy - 90], [cx - 108, cy + 70], [cx + 108, cy + 70]],
+      [[cx - 32, cy - 88], [cx + 32, cy - 88], [cx - 72, cy + 44], [cx + 72, cy + 44]],
     ];
-    for (const [x, y] of barrelPts) {
+    for (const [x, y] of barrelLayouts[layoutIdx % barrelLayouts.length]) {
       this.props.push({
         type: 'barrel',
-        x: x + (Math.random() - 0.5) * 20,
-        y: y + (Math.random() - 0.5) * 20,
+        x: x + (Math.random() - 0.5) * 14,
+        y: y + (Math.random() - 0.5) * 14,
         radius: 8,
         hp: 20,
         maxHp: 20,
@@ -300,11 +340,12 @@ export class ArcherGame {
         this.trickleTimer = 1.4;
         return;
       }
-      // Wave 2: Boss + continuous flanking swarm!
-      const bossId = this.floor >= 6 && this.floor % 6 === 0 ? 'boss_inquisitor' : 'boss_warden';
+      // Wave 2: Chapter Boss + continuous flanking swarm!
+      const bossId = this.biome.bossId || 'boss_warden';
+      const bossDef = ENEMY_DEFS[bossId] || ENEMY_DEFS.boss_warden;
       this._queueRift(this.arenaW / 2, 118, bossId, true);
       sfx.bossRoar();
-      this.showBanner(bossId === 'boss_inquisitor' ? 'IRON INQUISITOR' : 'OSSUARY WARDEN', 'BOSS HAS ENTERED THE ARENA!', '#f43f5e', 2.0);
+      this.showBanner(bossDef.name, 'CHAPTER BOSS HAS AWAKENED!', '#f43f5e', 2.0);
       const flankCount = 6 + this.floor * 2;
       for (let i = 0; i < flankCount; i++) {
         this.waveQueue.push(i % 3 === 0 ? 'bone_archer' : i % 2 === 0 ? 'skeleton' : 'imp');
@@ -314,15 +355,17 @@ export class ArcherGame {
       return;
     }
 
-    // Thick, escalating wave budget that trickles continuously from floor rifts
+    // Thick, escalating wave budget tuned per biome chapter!
     const baseCount = Math.round((10 + this.floor * 3.4 + this.waveIndex * 3.2) * this.curseSwarmDensity);
     const count = this.roomType === 'swarm' ? Math.round(baseCount * 1.4) : baseCount;
 
     const pool = ['skeleton', 'skeleton', 'imp'];
     if (this.floor >= 1 && this.waveIndex >= 2) pool.push('bone_archer');
-    if (this.floor >= 2) pool.push('bone_archer', 'ghoul');
-    if (this.floor >= 3) pool.push('ghoul', 'hellguard');
-    if (this.floor >= 5) pool.push('hellguard', 'ghoul', 'imp');
+    if (this.floor >= 3) pool.push('ghoul');
+    if (this.floor >= 4) pool.push('ghoul', 'cultist');
+    if (this.floor >= 7) pool.push('bomber', 'hellguard', 'cultist');
+    if (this.floor >= 10) pool.push('wraith', 'wraith', 'hellguard', 'bomber');
+    if (this.floor >= 13) pool.push('wraith', 'cultist', 'bomber', 'hellguard');
 
     for (let i = 0; i < count; i++) {
       this.waveQueue.push(pool[Math.floor(Math.random() * pool.length)]);
@@ -454,6 +497,16 @@ export class ArcherGame {
           maxLife: 3.6,
         });
         this._spawnText(p.x, p.y - 24, 'DECOY!', '#c084fc', false);
+      }
+
+      // Armor Passive: Stormcaller Shroud zaps nearby enemies with lightning on Shadow Roll!
+      if (ARMORS[p.armorId].passive === 'shock_roll') {
+        const nearest = this._findNearestEnemy(p.x, p.y);
+        if (nearest && Math.hypot(nearest.x - p.x, nearest.y - p.y) < 120) {
+          this.lightningArcs.push({ x1: p.x, y1: p.y, x2: nearest.x, y2: nearest.y, j1: 6, j2: -5, j3: 4, life: 0.18 });
+          this._damageEnemy(nearest, Math.round(28 * p.mods.damageMult), false, { x: 0, y: 0 }, 0, '#e9d5ff');
+          this._triggerChainLightning(nearest, 2);
+        }
       }
     } else if (slot === 'volley') {
       sfx.volley();
@@ -791,7 +844,8 @@ export class ArcherGame {
     const armor = ARMORS[p.armorId];
     const weapon = WEAPONS[p.weaponId];
 
-    p.mana = Math.min(p.maxMana, p.mana + dt * 9.5);
+    const manaRegen = armor.passive === 'seraph_halo' ? 15.2 : 9.5;
+    p.mana = Math.min(p.maxMana, p.mana + dt * manaRegen);
     for (const key of Object.keys(p.skills)) {
       if (p.skills[key].cd > 0) p.skills[key].cd = Math.max(0, p.skills[key].cd - dt);
     }
@@ -851,15 +905,16 @@ export class ArcherGame {
       p.stalkerReady = false;
     }
 
-    if (armor.passive === 'bone_orbit') {
+    if (armor.passive === 'bone_orbit' || armor.passive === 'seraph_halo') {
+      const orbDmg = armor.passive === 'seraph_halo' ? 22 : 14;
       this.boneShields = [0, 1].map((idx) => {
-        const ang = this.time * 3.8 + idx * Math.PI;
-        return { x: p.x + Math.cos(ang) * 20, y: p.y + Math.sin(ang) * 14, radius: 6 };
+        const ang = this.time * (armor.passive === 'seraph_halo' ? 4.6 : 3.8) + idx * Math.PI;
+        return { x: p.x + Math.cos(ang) * 21, y: p.y + Math.sin(ang) * 15, radius: 6 };
       });
       for (const orb of this.boneShields) {
         for (const e of [...this.enemies]) {
           if (Math.hypot(e.x - orb.x, e.y - orb.y) < e.radius + 7 && e.flash <= 0) {
-            this._damageEnemy(e, Math.round(14 * p.mods.damageMult), false, { x: e.x - p.x, y: e.y - p.y }, 24);
+            this._damageEnemy(e, Math.round(orbDmg * p.mods.damageMult), false, { x: e.x - p.x, y: e.y - p.y }, 24, armor.passive === 'seraph_halo' ? '#fde047' : null);
           }
         }
       }
@@ -985,7 +1040,8 @@ export class ArcherGame {
           (stalkerBoost ? 1.75 : 1.0) *
           (spectral ? 0.65 : 1.0)
       );
-      const crit = stalkerBoost || Math.random() < weapon.critChance + p.mods.critBonus + (isSnap ? 0.15 : 0);
+      const seraphCrit = ARMORS[p.armorId].passive === 'seraph_halo' ? 0.1 : 0;
+      const crit = stalkerBoost || Math.random() < weapon.critChance + p.mods.critBonus + seraphCrit + (isSnap ? 0.15 : 0);
       const critMult = 1.65 + p.mods.critDmgBonus;
 
       this.projectiles.push({
@@ -998,14 +1054,17 @@ export class ArcherGame {
         damage: crit ? Math.round(dmg * critMult) : dmg,
         crit,
         isSnap,
-        heavy: isSnap || weapon.id === 'greatbow' || hasComet,
+        heavy: isSnap || weapon.id === 'greatbow' || weapon.id === 'dragoncannon' || hasComet,
         isComet: hasComet,
         cometTimer: 0.05,
         pierceLeft: weapon.pierce + p.mods.pierce + (isSnap ? 1 : 0),
         bounceLeft: weapon.bounce + p.mods.bounce,
         knockback: weapon.knockback * p.mods.knockbackMult * (isSnap ? 1.4 : 1),
         color: spectral ? '#c084fc' : hasComet ? '#fb923c' : isSnap ? '#fde047' : weapon.color,
-        ignited: p.mods.fireLevel > 0 || hasComet,
+        ignited: p.mods.fireLevel > 0 || hasComet || !!weapon.explosiveRadius,
+        innateChill: !!weapon.innateChill,
+        innateShock: !!weapon.innateShock,
+        explosiveRadius: weapon.explosiveRadius || 0,
         kind: weapon.id === 'chakram' ? 'chakram' : 'arrow',
         fromEnemy: false,
         hitIds: new Set(),
@@ -1138,11 +1197,12 @@ export class ArcherGame {
       const speedMod = e.snareTimer > 0 ? 0.08 : e.chillTimer > 0 ? 0.62 : 1.0;
       const spd = e.speed * speedMod;
 
-      if (e.behavior === 'ranged') {
-        if (dist > 118) {
+      if (e.behavior === 'ranged' || e.behavior === 'summoner' || e.behavior === 'wraith') {
+        const keepDist = e.behavior === 'wraith' ? 92 : 118;
+        if (dist > keepDist) {
           e.vx = (dx / dist) * spd;
           e.vy = (dy / dist) * spd;
-        } else if (dist < 68) {
+        } else if (dist < 62) {
           e.vx = -(dx / dist) * spd * 0.7;
           e.vy = -(dy / dist) * spd * 0.7;
         } else {
@@ -1150,12 +1210,20 @@ export class ArcherGame {
           e.vy *= 0.85;
         }
         e.fireTimer -= dt;
-        if (e.fireTimer <= 0 && dist < 210) {
-          e.fireTimer = Math.max(1.3, 2.4 - this.floor * 0.08);
-          this._fireEnemyShot(e, e.facing, 132 + this.floor * 4, e.damage);
+        if (e.fireTimer <= 0 && dist < 215) {
+          e.fireTimer = Math.max(1.25, (e.fireCooldown || 2.3) - this.floor * 0.05);
+          if (e.behavior === 'summoner') {
+            this._fireEnemyShot(e, e.facing - 0.14, 128 + this.floor * 3, e.damage);
+            this._fireEnemyShot(e, e.facing + 0.14, 128 + this.floor * 3, e.damage);
+            if (this.enemies.length < 18 && Math.random() < 0.45) {
+              this._queueRift(e.x + (Math.random() - 0.5) * 32, e.y + 12, 'skeleton');
+            }
+          } else {
+            this._fireEnemyShot(e, e.facing, 134 + this.floor * 3, e.damage);
+          }
         }
-      } else if (e.behavior === 'zigzag') {
-        const perp = Math.sin(this.time * 6 + e.seed) * 0.65;
+      } else if (e.behavior === 'zigzag' || e.behavior === 'bomber') {
+        const perp = Math.sin(this.time * (e.behavior === 'bomber' ? 8 : 6) + e.seed) * 0.55;
         const ang = e.facing + perp;
         e.vx = Math.cos(ang) * spd;
         e.vy = Math.sin(ang) * spd;
@@ -1164,16 +1232,21 @@ export class ArcherGame {
         e.vy = (dy / dist) * spd;
         e.bossSkillTimer -= dt;
         if (e.bossSkillTimer <= 0) {
-          e.bossSkillTimer = e.behavior === 'boss_fire' ? 2.4 : 3.0;
-          const bolts = e.behavior === 'boss_fire' ? 10 : 8;
+          e.bossSkillTimer = e.behavior === 'boss_abyss' ? 2.1 : e.behavior === 'boss_fire' ? 2.35 : 2.8;
+          const bolts = e.behavior === 'boss_lich' || e.behavior === 'boss_abyss' ? 12 : e.behavior === 'boss_fire' ? 10 : 8;
           for (let b = 0; b < bolts; b++) {
             const ang = e.facing + (b / bolts) * Math.PI * 2;
-            this._fireEnemyShot(e, ang, 118 + this.floor * 4, e.damage * 0.8);
+            this._fireEnemyShot(e, ang, 118 + this.floor * 3, e.damage * 0.8);
+          }
+          if (e.behavior === 'boss_poison') {
+            this.decals.push({ kind: 'poison', x: p.x, y: p.y, radius: 24, life: 5.0, maxLife: 5.0 });
           }
           this.shake = Math.max(this.shake, 3.5);
-          if (this.enemies.length < 7) {
-            this._queueRift(e.x + 34, e.y + 12, 'imp');
-            this._queueRift(e.x - 34, e.y + 12, 'skeleton');
+          if (this.enemies.length < 8) {
+            const addA = e.behavior === 'boss_frost' ? 'wraith' : e.behavior === 'boss_abyss' ? 'bomber' : 'imp';
+            const addB = e.behavior === 'boss_poison' ? 'ghoul' : e.behavior === 'boss_abyss' ? 'cultist' : 'skeleton';
+            this._queueRift(e.x + 34, e.y + 12, addA);
+            this._queueRift(e.x - 34, e.y + 12, addB);
           }
         }
       } else {
@@ -1197,10 +1270,15 @@ export class ArcherGame {
 
       e.x += e.vx * dt;
       e.y += e.vy * dt;
-      this._resolveArenaAndProps(e);
+      // Frost Wraiths glide eerily through stone pillars!
+      this._resolveArenaAndProps(e, e.behavior === 'wraith');
 
       if (p.invuln <= 0 && Math.hypot(p.x - e.x, p.y - e.y) < p.radius + e.radius - 1) {
         this._hurtPlayer(e.damage, e.x, e.y);
+        if (e.behavior === 'bomber') {
+          this.novaRings.push({ x: e.x, y: e.y, maxRadius: 42, color: '#f97316', life: 0.28, maxLife: 0.28 });
+          this._killEnemy(e, i);
+        }
       }
     }
   }
@@ -1399,11 +1477,28 @@ export class ArcherGame {
         if (Math.hypot(pr.x - e.x, pr.y - e.y) < e.radius + 5) {
           if (pr.hitIds) pr.hitIds.add(e);
 
-          this._damageEnemy(e, pr.damage, pr.crit, { x: pr.vx, y: pr.vy }, pr.knockback);
+          // Frostfang Bow deals +35% bonus damage to already-chilled foes!
+          const hitDmg = pr.innateChill && e.chillTimer > 0 ? Math.round(pr.damage * 1.35) : pr.damage;
+          this._damageEnemy(e, hitDmg, pr.crit, { x: pr.vx, y: pr.vy }, pr.knockback);
+
+          // Dragon Cannon explosive AoE blast!
+          if (pr.explosiveRadius > 0) {
+            sfx.explode();
+            this.novaRings.push({ x: pr.x, y: pr.y, maxRadius: pr.explosiveRadius + 8, color: '#fb923c', life: 0.24, maxLife: 0.24 });
+            this.lightFlashes.push({ x: pr.x, y: pr.y - 6, radius: 52, colorKey: 'amber', life: 0.18, maxLife: 0.18 });
+            this._burstParticles(pr.x, pr.y - 6, '#f97316', 10, 62);
+            for (const other of [...this.enemies]) {
+              if (other === e) continue;
+              if (Math.hypot(other.x - pr.x, other.y - pr.y) < pr.explosiveRadius + other.radius) {
+                other.burnTimer = 2.4;
+                this._damageEnemy(other, Math.round(hitDmg * 0.65), false, { x: other.x - pr.x, y: other.y - pr.y }, 26, '#fb923c');
+              }
+            }
+          }
 
           if (pr.ignited) e.burnTimer = 2.6 + p.mods.fireLevel * 0.8;
-          if (p.mods.frostLevel > 0) e.chillTimer = 2.4 + p.mods.frostLevel * 0.7;
-          if (p.mods.lightningLevel > 0) this._triggerChainLightning(e, p.mods.lightningLevel);
+          if (p.mods.frostLevel > 0 || pr.innateChill) e.chillTimer = 2.6 + p.mods.frostLevel * 0.7;
+          if (p.mods.lightningLevel > 0 || pr.innateShock) this._triggerChainLightning(e, Math.max(1, p.mods.lightningLevel));
           if (p.evolutions.has('tempest_barrage') && (pr.crit || pr.isSnap)) {
             this._triggerTempestBolt(e);
           }
@@ -1512,6 +1607,23 @@ export class ArcherGame {
         this.frenzyTimer = 3.0;
         this.player.hp = Math.min(this.player.maxHp, this.player.hp + 12);
         this._spawnText(this.player.x, this.player.y - 24, 'FRENZY +12HP!', '#f43f5e', true);
+      }
+    }
+
+    // Armor Passive: Bloodplate Cuirass leeches +2 HP on every kill!
+    if (ARMORS[this.player.armorId].passive === 'kill_leech') {
+      this.player.hp = Math.min(this.player.maxHp, this.player.hp + 2);
+    }
+
+    // Cinder Bomber explodes on death, blasting nearby monsters too!
+    if (e.behavior === 'bomber') {
+      sfx.explode();
+      this.novaRings.push({ x: e.x, y: e.y, maxRadius: 42, color: '#f97316', life: 0.25, maxLife: 0.25 });
+      this.lightFlashes.push({ x: e.x, y: e.y, radius: 56, colorKey: 'amber', life: 0.2, maxLife: 0.2 });
+      for (const other of [...this.enemies]) {
+        if (Math.hypot(other.x - e.x, other.y - e.y) < 42 + other.radius) {
+          this._damageEnemy(other, 32, false, { x: other.x - e.x, y: other.y - e.y }, 40, '#fb923c');
+        }
       }
     }
 
@@ -1968,6 +2080,19 @@ export class ArcherGame {
     p.y += (dy / len) * 8;
     this._resolveArenaAndProps(p);
 
+    // Armor Passive: Frostweave Mantle freezes & knocks back attackers when hit!
+    if (ARMORS[p.armorId].passive === 'frost_retaliate' && p.hp > 0) {
+      this.novaRings.push({ x: p.x, y: p.y, maxRadius: 68, color: '#67e8f9', life: 0.32, maxLife: 0.32 });
+      this.lightFlashes.push({ x: p.x, y: p.y, radius: 64, colorKey: 'cyan', life: 0.24, maxLife: 0.24 });
+      this._spawnText(p.x, p.y - 28, 'FROST NOVA!', '#67e8f9', false);
+      for (const e of [...this.enemies]) {
+        if (Math.hypot(e.x - p.x, e.y - p.y) < 70 + e.radius) {
+          e.chillTimer = 3.5;
+          this._damageEnemy(e, Math.round(24 * p.mods.damageMult), false, { x: e.x - p.x, y: e.y - p.y }, 95, '#67e8f9');
+        }
+      }
+    }
+
     this.ui.syncHud(this);
 
     if (p.hp <= 0) {
@@ -1976,9 +2101,10 @@ export class ArcherGame {
     }
   }
 
-  _resolveArenaAndProps(ent) {
+  _resolveArenaAndProps(ent, ghostProps = false) {
     ent.x = Math.max(this.wallPad + ent.radius, Math.min(this.arenaW - this.wallPad - ent.radius, ent.x));
     ent.y = Math.max(this.wallPad + 12 + ent.radius, Math.min(this.arenaH - this.wallPad - ent.radius, ent.y));
+    if (ghostProps) return;
 
     for (const prop of this.props) {
       if (!prop.alive || !prop.solid) continue;

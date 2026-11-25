@@ -1,6 +1,6 @@
 // ARCHER — Clean Mobile-First HUD & Modal Wiring
 
-import { ARMORS, WEAPONS, EVOLUTIONS, RELICS, getSynergyHint } from './data.js';
+import { ARMORS, WEAPONS, EVOLUTIONS, RELICS, BIOMES, getSynergyHint } from './data.js';
 import { ArcherGame } from './game.js';
 import { sfx } from './audio.js';
 
@@ -18,6 +18,7 @@ const overlays = {
 
 let isForgeMidRunInspect = false;
 let activeForgeTab = 'weapons';
+let selectedChapter = 1;
 
 function closeModals() {
   Object.values(overlays).forEach((el) => el.classList.add('hidden'));
@@ -290,14 +291,41 @@ const game = new ArcherGame($('game-canvas'), {
   openGameOver,
 });
 
+$('tab-weapons').textContent = `BOWS (${Object.keys(WEAPONS).length})`;
+$('tab-armors').textContent = `ARMOR (${Object.keys(ARMORS).length})`;
+
+function renderChapterPicker() {
+  const wrap = $('chapter-pills');
+  wrap.innerHTML = '';
+  for (const b of BIOMES) {
+    const btn = document.createElement('button');
+    btn.className = `ch-btn ${b.chapter === selectedChapter ? 'active' : ''}`;
+    btn.innerHTML = `<span class="ch-ico">${b.icon}</span><span>C${b.chapter}</span>`;
+    btn.onclick = () => {
+      selectedChapter = b.chapter;
+      sfx.uiClick();
+      renderChapterPicker();
+    };
+    wrap.appendChild(btn);
+  }
+  const active = BIOMES[selectedChapter - 1];
+  const bonus = active.chapter > 1 ? ` · ${active.startGold}g` : '';
+  $('chapter-label').textContent = `CH ${active.chapter} · ${active.name} (F${active.minFloor}${bonus})`;
+
+  const best = game.getBestFloor();
+  $('title-best').textContent = best > 1 ? `BEST DEPTH: FLOOR ${best}` : '5 CHAPTERS · 16 GEAR SETS';
+}
+
+renderChapterPicker();
+
 $('btn-start').onclick = () => {
   closeModals();
-  game.startRun();
+  game.startRun(selectedChapter);
 };
 
 $('btn-restart').onclick = () => {
   closeModals();
-  game.startRun();
+  game.startRun(selectedChapter);
 };
 
 $('btn-mute').onclick = () => {
