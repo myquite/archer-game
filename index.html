@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="ARCHER" />
+  <meta name="theme-color" content="#160e22" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" type="image/svg+xml" href="icon.svg" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <title>ARCHER — Sprite-Stacked Dungeon ARPG</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="cabinet">
+    <!-- TOP RETRO BEVELED PLUM/CHARCOAL HUD -->
+    <header class="hud-top panel">
+      <div class="top-row">
+        <div class="stat-pill depth-pill">
+          <span class="label">DEPTH</span>
+          <span id="hud-floor" class="val gold">FL 1</span>
+        </div>
+        <div class="biome-box">
+          <div id="hud-biome" class="biome-name">TORCHLIT CRYPTS</div>
+          <div id="hud-wave" class="wave-sub">WAVE 1/2 • KILLS 0</div>
+        </div>
+        <div class="top-right-btns">
+          <div class="stat-pill gold-pill">
+            <span class="coin-dot"></span>
+            <span id="hud-gold" class="val gold">25</span>
+          </div>
+          <button id="btn-mute" class="icon-btn" title="Toggle Sound">🔊</button>
+        </div>
+      </div>
+
+      <div class="gear-xp-row">
+        <div class="xp-wrap">
+          <span id="hud-lvl" class="lvl-badge">LV 1</span>
+          <div class="bar-track xp-track">
+            <div id="bar-xp" class="bar-fill xp-fill" style="width: 0%"></div>
+          </div>
+          <span id="hud-dice" class="dice-badge" title="Level-Up Reroll Dice">🎲2</span>
+        </div>
+        <div class="gear-strip">
+          <button id="btn-gear" class="gear-chip" title="Inspect & Swap Owned Gear">
+            <span id="hud-weapon" class="chip-w">Shadow Recurve</span>
+            <span class="chip-sep">/</span>
+            <span id="hud-armor" class="chip-a">Twilight Ranger</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="hud-badges" class="badges-row hidden"></div>
+    </header>
+
+    <!-- CENTER PORTRAIT PIXEL-PERFECT VIEWPORT -->
+    <main class="stage-wrap">
+      <canvas id="game-canvas"></canvas>
+
+      <!-- TITLE OVERLAY -->
+      <div id="overlay-title" class="modal-backdrop">
+        <div class="modal-card title-card">
+          <div class="title-kicker">16-BIT SPRITE-STACKED ARPG</div>
+          <h1 class="game-title">ARCHER</h1>
+          <p class="title-desc">
+            Descend the medieval dungeon. Kite escalating hordes of undead &amp; demons, forge new stacked bows &amp; armor layers, and survive the Abyss.
+          </p>
+          <div class="tip-box">
+            <div><span class="key">DRAG</span> or <span class="key">WASD</span> One-Thumb Move &amp; Kite</div>
+            <div><span class="key">LIFT / PAUSE</span> Charge Heavy Piercing <b>Snap Shot</b></div>
+            <div><span class="key">🔥 BRAZIERS</span> Shoot through flames to ignite arrows!</div>
+          </div>
+          <button id="btn-start" class="pixel-btn primary-btn">DESCEND INTO CRYPT</button>
+        </div>
+      </div>
+
+      <!-- LEVEL-UP / UPGRADE DRAFT MODAL -->
+      <div id="overlay-levelup" class="modal-backdrop hidden">
+        <div class="modal-card">
+          <div class="modal-header gold">LEVEL UP — CHOOSE POWER</div>
+          <div id="levelup-cards" class="choice-list"></div>
+          <button id="btn-reroll-up" class="pixel-btn reroll-btn">🎲 REROLL CARDS (2)</button>
+        </div>
+      </div>
+
+      <!-- IRONBOUND RELIC CHEST MODAL -->
+      <div id="overlay-relic" class="modal-backdrop hidden">
+        <div class="modal-card relic-modal">
+          <div class="modal-header gold">★ IRONBOUND RELIC CHEST ★</div>
+          <div class="relic-sub">Choose a permanent passive Relic for this run:</div>
+          <div id="relic-cards" class="choice-list"></div>
+          <button id="btn-reroll-relic" class="pixel-btn reroll-btn">🎲 REROLL RELICS (2)</button>
+        </div>
+      </div>
+
+      <!-- BRANCHING FLOOR DOORS MODAL -->
+      <div id="overlay-doors" class="modal-backdrop hidden">
+        <div class="modal-card">
+          <div class="modal-header purple">CHOOSE YOUR DESCENT PATH</div>
+          <div id="door-cards" class="choice-list"></div>
+        </div>
+      </div>
+
+      <!-- MASTER BLACKSMITH & GEAR MODAL -->
+      <div id="overlay-blacksmith" class="modal-backdrop hidden">
+        <div class="modal-card forge-card">
+          <div class="modal-header gold">MASTER BLACKSMITH</div>
+          <div class="forge-sub">
+            <span>GOLD: <b id="forge-gold" class="gold">0</b></span>
+            <span class="forge-hint">Gear visibly swaps your 3D sprite layers!</span>
+          </div>
+          <div class="forge-actions">
+            <button id="btn-temper" class="pixel-btn small-btn">⚒ TEMPER +18% (45g)</button>
+            <button id="btn-heal" class="pixel-btn small-btn heal-btn">♥ HEAL 45% (35g)</button>
+            <button id="btn-buy-rerolls" class="pixel-btn small-btn dice-btn">🎲 +2 DICE (30g)</button>
+          </div>
+          <div class="forge-sec-title">WEAPONS</div>
+          <div id="forge-weapons" class="forge-grid"></div>
+          <div class="forge-sec-title">ARMOR LAYER SETS</div>
+          <div id="forge-armors" class="forge-grid"></div>
+          <button id="btn-leave-forge" class="pixel-btn primary-btn">DESCEND TO NEXT FLOOR ▶</button>
+        </div>
+      </div>
+
+      <!-- CURSED ALTAR MODAL -->
+      <div id="overlay-cursed" class="modal-backdrop hidden">
+        <div class="modal-card">
+          <div class="modal-header crimson">CURSED DEMON ALTAR</div>
+          <div id="cursed-cards" class="choice-list"></div>
+          <button id="btn-decline-curse" class="pixel-btn small-btn">WALK AWAY UNSCATHED</button>
+        </div>
+      </div>
+
+      <!-- GAME OVER MODAL -->
+      <div id="overlay-gameover" class="modal-backdrop hidden">
+        <div class="modal-card">
+          <div class="modal-header crimson">YOU FELL IN THE CRYPT</div>
+          <div id="gameover-stats" class="stats-summary"></div>
+          <button id="btn-restart" class="pixel-btn primary-btn">DESCEND AGAIN</button>
+        </div>
+      </div>
+    </main>
+
+    <!-- BOTTOM RETRO BEVELED HP/MANA + ACTIVE QUICKBAR -->
+    <footer class="hud-bottom panel">
+      <div class="vitals-row">
+        <div class="vital-box">
+          <div class="vital-label"><span>HP</span><span id="txt-hp">100/100</span></div>
+          <div class="bar-track hp-track">
+            <div id="bar-hp" class="bar-fill hp-fill" style="width: 100%"></div>
+          </div>
+        </div>
+        <div class="vital-box">
+          <div class="vital-label"><span>MANA</span><span id="txt-mana">100/100</span></div>
+          <div class="bar-track mana-track">
+            <div id="bar-mana" class="bar-fill mana-fill" style="width: 100%"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="quickbar">
+        <button id="skill-roll" class="skill-btn" data-skill="roll">
+          <span class="sk-key"><span class="kb-only">SPACE</span><span class="touch-only">💨 DASH</span></span>
+          <span class="sk-name">SHADOW ROLL</span>
+          <span class="sk-cost">15 MP</span>
+          <div class="sk-cd-mask" id="cd-roll"></div>
+        </button>
+        <button id="skill-volley" class="skill-btn" data-skill="volley">
+          <span class="sk-key"><span class="kb-only">E / 2</span><span class="touch-only">☄️ RAIN</span></span>
+          <span class="sk-name">SKYFALL</span>
+          <span class="sk-cost">30 MP</span>
+          <div class="sk-cd-mask" id="cd-volley"></div>
+        </button>
+        <button id="skill-snare" class="skill-btn" data-skill="snare">
+          <span class="sk-key"><span class="kb-only">R / 3</span><span class="touch-only">⛓️ TRAP</span></span>
+          <span class="sk-name">SNARE TRAP</span>
+          <span class="sk-cost">25 MP</span>
+          <div class="sk-cd-mask" id="cd-snare"></div>
+        </button>
+      </div>
+    </footer>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
