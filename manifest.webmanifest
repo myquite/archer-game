@@ -1,12 +1,18 @@
 {
-  "name": "ARCHER — Sprite-Stacked Dungeon ARPG",
+  "name": "ARCHER — 16-Bit Dungeon ARPG",
   "short_name": "ARCHER",
   "start_url": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#160e22",
-  "theme_color": "#160e22",
+  "background_color": "#1f1430",
+  "theme_color": "#1f1430",
   "icons": [
+    {
+      "src": "apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
     {
       "src": "icon.svg",
       "sizes": "any",

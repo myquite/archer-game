@@ -586,7 +586,7 @@ export class GameRenderer {
 
     // 14. Screen-space Virtual Thumbstick & Banners
     if (game.joy.active) this._drawJoystick(ctx, game.joy);
-    if (game.banner && game.banner.timer > 0) this._drawBanner(ctx, game.banner);
+    if (game.state === 'playing' && game.banner && game.banner.timer > 0) this._drawBanner(ctx, game.banner);
   }
 
   _drawWallTorchFlames(ctx, time) {

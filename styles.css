@@ -831,13 +831,20 @@ html, body {
 
 .kb-only { display: inline; }
 
-/* FULL-BLEED IPHONE 17 SAFE AREAS */
+/* FULL-BLEED IPHONE 17 SAFE AREAS (Browser & Home Screen Standalone PWA) */
 @media (max-width: 540px), (pointer: coarse) {
-  html, body { background: var(--plum-dark); }
+  html, body {
+    background: #1f1430;
+    height: 100%;
+    position: fixed;
+    inset: 0;
+  }
 
   .cabinet {
-    width: 100vw;
-    height: 100dvh;
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
     max-width: none;
     max-height: none;
     border: none;
@@ -845,18 +852,32 @@ html, body {
   }
 
   .hud-top {
-    padding-top: calc(6px + env(safe-area-inset-top));
+    background: #1f1430;
+    border-top: none;
+    padding-top: calc(8px + env(safe-area-inset-top));
     padding-left: calc(10px + env(safe-area-inset-left));
     padding-right: calc(10px + env(safe-area-inset-right));
   }
 
   .hud-bottom {
-    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    background: linear-gradient(180deg, var(--plum-panel) 0%, #1a1029 100%);
+    padding-bottom: max(10px, calc(env(safe-area-inset-bottom) - 14px));
     padding-left: calc(10px + env(safe-area-inset-left));
     padding-right: calc(10px + env(safe-area-inset-right));
   }
 
   .skill-btn { min-height: 58px; }
+}
+
+/* Extra top clearance when launched from iOS Home Screen so status bar never blurs HUD */
+@media (display-mode: standalone) {
+  .hud-top {
+    padding-top: calc(16px + env(safe-area-inset-top));
+  }
+
+  .hud-bottom {
+    padding-bottom: max(14px, calc(env(safe-area-inset-bottom) - 14px));
+  }
 }
 
 @media (pointer: coarse) {
