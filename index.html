@@ -16,23 +16,31 @@
 </head>
 <body>
   <div class="cabinet">
-    <!-- MINIMAL MOBILE-FIRST TOP BAR -->
+    <!-- 16-BIT BEVELED PLUM/CHARCOAL TOP HUD -->
     <header class="hud-top panel">
       <div class="top-row">
         <div class="top-left">
           <span id="hud-floor" class="chip floor-chip">F1</span>
           <span id="hud-wave" class="chip wave-chip">W1/3</span>
-          <span id="hud-left" class="chip foe-chip">☠ 16</span>
+          <span class="chip foe-chip">
+            <span data-px-icon="skull" data-px-size="14"></span>
+            <span id="hud-left">16</span>
+          </span>
         </div>
 
         <div class="top-right">
-          <span class="chip gold-chip"><span class="coin-dot"></span><span id="hud-gold">25</span></span>
-          <button id="btn-gear" class="icon-btn gear-btn" title="Gear &amp; Forge">⚒</button>
-          <button id="btn-mute" class="icon-btn" title="Sound">🔊</button>
+          <span class="chip gold-chip">
+            <span data-px-icon="coin" data-px-size="14"></span>
+            <span id="hud-gold">25</span>
+          </span>
+          <button id="btn-gear" class="icon-btn gear-btn" title="Forge &amp; Gear">
+            <span data-px-icon="anvil" data-px-size="18"></span>
+          </button>
+          <button id="btn-mute" class="icon-btn" title="Audio Mode"></button>
         </div>
       </div>
 
-      <!-- SLIM XP BAR + COMPACT BUILD ICONS -->
+      <!-- RAZOR PIXEL XP BAR + ICON-ONLY BUILD BADGES -->
       <div class="xp-strip">
         <span id="hud-lvl" class="lvl-pip">LV 1</span>
         <div class="bar-track xp-track">
@@ -46,19 +54,25 @@
     <main class="stage-wrap">
       <canvas id="game-canvas"></canvas>
 
-      <!-- CLEAN TITLE OVERLAY -->
+      <!-- 16-BIT TITLE OVERLAY -->
       <div id="overlay-title" class="modal-backdrop">
         <div class="modal-card title-card">
-          <div class="title-emblem">➶</div>
+          <div class="title-emblem" data-px-icon="emblem_bow" data-px-size="44"></div>
           <h1 class="game-title">ARCHER</h1>
-          <div id="title-best" class="title-sub">DUNGEON ROGUELITE</div>
+          <div id="title-best" class="title-sub">5 CHAPTERS · 16 GEAR SETS</div>
           <div class="chapter-picker">
             <div id="chapter-pills" class="chapter-pills"></div>
             <div id="chapter-label" class="chapter-label">CH 1 · TORCHLIT CRYPTS (F1)</div>
           </div>
           <div class="pill-tips">
-            <div class="tip-pill"><span>👆</span><b>MOVE</b> to Charge · <b>STOP</b> to Snap Shot</div>
-            <div class="tip-pill"><span>⚠️</span><b>DODGE</b> red danger rings &amp; flank shields</div>
+            <div class="tip-pill">
+              <span data-px-icon="tip_move" data-px-size="16"></span>
+              <span><b>MOVE</b> TO CHARGE · <b>STOP</b> TO SNAP</span>
+            </div>
+            <div class="tip-pill">
+              <span data-px-icon="tip_warn" data-px-size="16"></span>
+              <span><b>DODGE</b> RED RINGS &amp; FLANK SHIELDS</span>
+            </div>
           </div>
           <button id="btn-start" class="pixel-btn primary-btn play-btn">PLAY</button>
         </div>
@@ -69,16 +83,16 @@
         <div class="modal-card">
           <div class="modal-header gold">LEVEL UP</div>
           <div id="levelup-cards" class="choice-list"></div>
-          <button id="btn-reroll-up" class="pixel-btn reroll-btn">🎲 REROLL (2)</button>
+          <button id="btn-reroll-up" class="pixel-btn reroll-btn"></button>
         </div>
       </div>
 
       <!-- RELIC CHEST DRAFT -->
       <div id="overlay-relic" class="modal-backdrop hidden">
         <div class="modal-card">
-          <div class="modal-header gold">★ RELIC CHEST</div>
+          <div class="modal-header gold">RELIC CHEST</div>
           <div id="relic-cards" class="choice-list"></div>
-          <button id="btn-reroll-relic" class="pixel-btn reroll-btn">🎲 REROLL (2)</button>
+          <button id="btn-reroll-relic" class="pixel-btn reroll-btn"></button>
         </div>
       </div>
 
@@ -90,18 +104,36 @@
         </div>
       </div>
 
-      <!-- COMPACT BLACKSMITH & GEAR -->
+      <!-- MASTER BLACKSMITH FORGE -->
       <div id="overlay-blacksmith" class="modal-backdrop hidden">
         <div class="modal-card forge-card">
           <div class="forge-head">
-            <span class="modal-title-sm gold">⚒ FORGE</span>
-            <span class="chip gold-chip"><span class="coin-dot"></span><span id="forge-gold">0</span></span>
+            <span class="modal-title-sm gold">
+              <span data-px-icon="anvil" data-px-size="18"></span>
+              <span>FORGE</span>
+            </span>
+            <span class="chip gold-chip">
+              <span data-px-icon="coin" data-px-size="14"></span>
+              <span id="forge-gold">0</span>
+            </span>
           </div>
 
           <div class="forge-actions">
-            <button id="btn-temper" class="pixel-btn small-btn">⚔ +18%<br><span>45g</span></button>
-            <button id="btn-heal" class="pixel-btn small-btn heal-btn">♥ HEAL<br><span>35g</span></button>
-            <button id="btn-buy-rerolls" class="pixel-btn small-btn dice-btn">🎲 +2<br><span>30g</span></button>
+            <button id="btn-temper" class="pixel-btn small-btn forge-act-btn">
+              <span data-px-icon="sword" data-px-size="16"></span>
+              <span>+16%</span>
+              <b class="gold">45g</b>
+            </button>
+            <button id="btn-heal" class="pixel-btn small-btn heal-btn forge-act-btn">
+              <span data-px-icon="heart" data-px-size="16"></span>
+              <span>HEAL</span>
+              <b class="gold">35g</b>
+            </button>
+            <button id="btn-buy-rerolls" class="pixel-btn small-btn dice-btn forge-act-btn">
+              <span data-px-icon="dice" data-px-size="16"></span>
+              <span>+2</span>
+              <b class="gold">30g</b>
+            </button>
           </div>
 
           <div class="forge-tabs">
@@ -119,7 +151,7 @@
       <!-- CURSED ALTAR -->
       <div id="overlay-cursed" class="modal-backdrop hidden">
         <div class="modal-card">
-          <div class="modal-header crimson">⛧ CURSED ALTAR</div>
+          <div class="modal-header crimson">CURSED ALTAR</div>
           <div id="cursed-cards" class="choice-list"></div>
           <button id="btn-decline-curse" class="pixel-btn small-btn">SKIP</button>
         </div>
@@ -135,16 +167,22 @@
       </div>
     </main>
 
-    <!-- SLEEK BOTTOM VITALS + BIG ICONIC THUMB SKILLS -->
+    <!-- 16-BIT BEVELED BOTTOM VITALS + PIXEL-ART SKILL BAR -->
     <footer class="hud-bottom panel">
       <div class="vitals-row">
         <div class="bar-track vital-track">
           <div id="bar-hp" class="bar-fill hp-fill" style="width: 100%"></div>
-          <span id="txt-hp" class="bar-text">♥ 100/100</span>
+          <div class="bar-text">
+            <span data-px-icon="heart" data-px-size="12"></span>
+            <span id="txt-hp">100/100</span>
+          </div>
         </div>
         <div class="bar-track vital-track">
           <div id="bar-mana" class="bar-fill mana-fill" style="width: 100%"></div>
-          <span id="txt-mana" class="bar-text">✦ 100/100</span>
+          <div class="bar-text">
+            <span data-px-icon="mana" data-px-size="12"></span>
+            <span id="txt-mana">100/100</span>
+          </div>
         </div>
       </div>
 
@@ -152,21 +190,21 @@
         <button id="skill-roll" class="skill-btn" data-skill="roll">
           <span class="sk-corner kb-only">SPC</span>
           <span class="sk-mp">15</span>
-          <span class="sk-ico">💨</span>
+          <span class="sk-ico" data-px-icon="skill_roll" data-px-size="28"></span>
           <span class="sk-name">ROLL</span>
           <div class="sk-cd-mask" id="cd-roll"></div>
         </button>
         <button id="skill-volley" class="skill-btn" data-skill="volley">
           <span class="sk-corner kb-only">E</span>
           <span class="sk-mp">30</span>
-          <span class="sk-ico">☄️</span>
+          <span class="sk-ico" data-px-icon="skill_volley" data-px-size="28"></span>
           <span class="sk-name">VOLLEY</span>
           <div class="sk-cd-mask" id="cd-volley"></div>
         </button>
         <button id="skill-snare" class="skill-btn" data-skill="snare">
           <span class="sk-corner kb-only">R</span>
           <span class="sk-mp">25</span>
-          <span class="sk-ico">⛓️</span>
+          <span class="sk-ico" data-px-icon="skill_snare" data-px-size="28"></span>
           <span class="sk-name">SNARE</span>
           <div class="sk-cd-mask" id="cd-snare"></div>
         </button>

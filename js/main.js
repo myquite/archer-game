@@ -1,10 +1,18 @@
-// ARCHER — Clean Mobile-First HUD & Modal Wiring
+// ARCHER — Pixel-Art Mobile-First HUD & Modal Wiring
 
 import { ARMORS, WEAPONS, EVOLUTIONS, RELICS, BIOMES, getSynergyHint } from './data.js';
 import { ArcherGame } from './game.js';
 import { sfx } from './audio.js';
+import { pxIcon } from './icons.js';
 
 const $ = (id) => document.getElementById(id);
+
+// Hydrate all static pixel-art icon placeholders in index.html
+document.querySelectorAll('[data-px-icon]').forEach((el) => {
+  const name = el.dataset.pxIcon;
+  const size = parseInt(el.dataset.pxSize || '16', 10);
+  el.innerHTML = pxIcon(name, size);
+});
 
 const overlays = {
   title: $('overlay-title'),
@@ -34,38 +42,38 @@ function syncHud(game) {
 
   $('hud-floor').textContent = `F${game.floor}`;
   $('hud-wave').textContent = `W${Math.max(1, game.waveIndex)}/${game.totalWaves}`;
-  $('hud-left').textContent = game.roomCleared ? '✓ CLEAR' : `☠ ${left}`;
+  $('hud-left').textContent = game.roomCleared ? 'CLEAR' : `${left}`;
   $('hud-gold').textContent = `${game.gold}`;
   $('hud-lvl').textContent = `LV ${game.level}`;
   $('bar-xp').style.width = `${Math.min(100, (game.xp / game.xpNext) * 100)}%`;
 
-  // Compact icon-only Evolution & Relic badges
+  // Compact pixel-art icon badges for awakened Evolutions & Relics
   const badgeRow = $('hud-badges');
   const totalBadges = p.evolutions.size + game.relics.size;
   if (totalBadges === 0) {
     badgeRow.classList.add('hidden');
   } else {
     badgeRow.classList.remove('hidden');
-    const items = [];
-    for (const evoId of p.evolutions) {
-      const e = EVOLUTIONS.find((x) => x.id === evoId);
-      if (e) items.push(`<span class="mini-badge evo-badge" style="color:${e.color}" title="${e.name}: ${e.desc}">${e.icon}</span>`);
-    }
-    for (const relId of game.relics) {
-      const r = RELICS.find((x) => x.id === relId);
-      if (r) items.push(`<span class="mini-badge" style="color:${r.color}" title="${r.name}: ${r.desc}">${r.icon}</span>`);
-    }
-    const html = items.join('');
-    if (badgeRow.dataset.sig !== html) {
-      badgeRow.dataset.sig = html;
-      badgeRow.innerHTML = html;
+    const sig = `${[...p.evolutions].join(',')}|${[...game.relics].join(',')}`;
+    if (badgeRow.dataset.sig !== sig) {
+      badgeRow.dataset.sig = sig;
+      const items = [];
+      for (const evoId of p.evolutions) {
+        const e = EVOLUTIONS.find((x) => x.id === evoId);
+        if (e) items.push(`<span class="mini-badge evo-badge" style="color:${e.color}" title="${e.name}: ${e.desc}">${pxIcon(e.icon, 14)}</span>`);
+      }
+      for (const relId of game.relics) {
+        const r = RELICS.find((x) => x.id === relId);
+        if (r) items.push(`<span class="mini-badge" style="color:${r.color}" title="${r.name}: ${r.desc}">${pxIcon(r.icon, 14)}</span>`);
+      }
+      badgeRow.innerHTML = items.join('');
     }
   }
 
-  $('txt-hp').textContent = `♥ ${Math.ceil(p.hp)}/${p.maxHp}`;
+  $('txt-hp').textContent = `${Math.ceil(p.hp)}/${p.maxHp}`;
   $('bar-hp').style.width = `${Math.max(0, (p.hp / p.maxHp) * 100)}%`;
 
-  $('txt-mana').textContent = `✦ ${Math.floor(p.mana)}/${p.maxMana}`;
+  $('txt-mana').textContent = `${Math.floor(p.mana)}/${p.maxMana}`;
   $('bar-mana').style.width = `${Math.max(0, (p.mana / p.maxMana) * 100)}%`;
 
   for (const key of ['roll', 'volley', 'snare']) {
@@ -92,10 +100,10 @@ function openLevelUp(game, choices) {
     if (up.isEvolution) {
       btn.className = 'choice-card evo-card';
       btn.innerHTML = `
-        <div class="choice-ico" style="color:${up.color}">${up.icon}</div>
+        <div class="choice-ico" style="color:${up.color}">${pxIcon(up.icon, 26)}</div>
         <div class="choice-body">
           <div class="choice-top">
-            <span style="color:${up.color}">★ ${up.name}</span>
+            <span style="color:${up.color}">${up.name}</span>
             <span class="rank-pips gold">EVO</span>
           </div>
           <div class="choice-desc">${up.desc}</div>
@@ -107,14 +115,14 @@ function openLevelUp(game, choices) {
       const hint = getSynergyHint(up.id, game.upgradeRanks, game.player.evolutions);
       btn.className = 'choice-card';
       btn.innerHTML = `
-        <div class="choice-ico" style="color:${up.color}">${up.icon}</div>
+        <div class="choice-ico" style="color:${up.color}">${pxIcon(up.icon, 24)}</div>
         <div class="choice-body">
           <div class="choice-top">
             <span style="color:${up.color}">${up.name}</span>
             <span class="rank-pips" style="color:${up.color}">${rankPips(rank, up.maxRank)}</span>
           </div>
           <div class="choice-desc">${up.desc}</div>
-          ${hint ? `<div class="synergy-pill">✦ ${hint}</div>` : ''}
+          ${hint ? `<div class="synergy-pill">+ ${hint}</div>` : ''}
         </div>
       `;
       btn.onclick = () => game.applyUpgrade(up.id, false);
@@ -123,7 +131,7 @@ function openLevelUp(game, choices) {
   }
 
   const rerollBtn = $('btn-reroll-up');
-  rerollBtn.textContent = `🎲 REROLL (${game.rerolls})`;
+  rerollBtn.innerHTML = `${pxIcon('dice', 16)} <span>REROLL (${game.rerolls})</span>`;
   rerollBtn.disabled = game.rerolls <= 0;
 
   overlays.levelup.classList.remove('hidden');
@@ -138,7 +146,7 @@ function openRelicDraft(game, choices) {
     const btn = document.createElement('button');
     btn.className = 'choice-card relic-card';
     btn.innerHTML = `
-      <div class="choice-ico" style="color:${rel.color}">${rel.icon}</div>
+      <div class="choice-ico" style="color:${rel.color}">${pxIcon(rel.icon, 26)}</div>
       <div class="choice-body">
         <div class="choice-top">
           <span style="color:${rel.color}">${rel.name}</span>
@@ -152,7 +160,7 @@ function openRelicDraft(game, choices) {
   }
 
   const rerollBtn = $('btn-reroll-relic');
-  rerollBtn.textContent = `🎲 REROLL (${game.rerolls})`;
+  rerollBtn.innerHTML = `${pxIcon('dice', 16)} <span>REROLL (${game.rerolls})</span>`;
   rerollBtn.disabled = game.rerolls <= 0;
 
   overlays.relic.classList.remove('hidden');
@@ -163,12 +171,18 @@ function openDoorPicker(game, doors) {
   const list = $('door-cards');
   list.innerHTML = '';
 
-  const icons = { swarm: '🔥', blacksmith: '⚒', cursed: '⛧', boss: '💀' };
+  const iconMap = {
+    swarm: 'up_hellfire',
+    blacksmith: 'anvil',
+    cursed: 'ch_abyss',
+    boss: 'door_boss',
+  };
+
   for (const d of doors) {
     const btn = document.createElement('button');
     btn.className = 'choice-card';
     btn.innerHTML = `
-      <div class="choice-ico" style="color:${d.color}">${icons[d.type] || '🚪'}</div>
+      <div class="choice-ico" style="color:${d.color}">${pxIcon(iconMap[d.type] || 'door_portal', 24)}</div>
       <div class="choice-body">
         <div class="choice-top">
           <span style="color:${d.color}">${d.title}</span>
@@ -204,9 +218,12 @@ function renderForgeContents(game) {
     const btn = document.createElement('button');
     btn.className = `forge-item ${equipped ? 'equipped' : ''} ${!canAfford ? 'cant-afford' : ''}`;
     btn.innerHTML = `
-      <div class="fi-name" style="color:${w.color}">${w.name}</div>
-      <div class="fi-tag">${w.tag}</div>
-      <div class="fi-cost">${equipped ? '✓ EQUIPPED' : owned ? 'EQUIP' : `${w.cost}g`}</div>
+      <div class="fi-ico">${pxIcon(`w_${w.id}`, 24)}</div>
+      <div class="fi-info">
+        <div class="fi-name" style="color:${w.color}">${w.name}</div>
+        <div class="fi-tag">${w.tag}</div>
+        <div class="fi-cost">${equipped ? 'EQUIPPED' : owned ? 'EQUIP' : `${pxIcon('coin', 11)} ${w.cost}`}</div>
+      </div>
     `;
     btn.onclick = () => {
       if (game.buyOrEquipWeapon(w.id)) renderForgeContents(game);
@@ -224,9 +241,12 @@ function renderForgeContents(game) {
     const btn = document.createElement('button');
     btn.className = `forge-item ${equipped ? 'equipped' : ''} ${!canAfford ? 'cant-afford' : ''}`;
     btn.innerHTML = `
-      <div class="fi-name">${a.name}</div>
-      <div class="fi-tag">${a.tag}</div>
-      <div class="fi-cost">${equipped ? '✓ EQUIPPED' : owned ? 'EQUIP' : `${a.cost}g`}</div>
+      <div class="fi-ico">${pxIcon(`a_${a.id}`, 24)}</div>
+      <div class="fi-info">
+        <div class="fi-name">${a.name}</div>
+        <div class="fi-tag">${a.tag}</div>
+        <div class="fi-cost">${equipped ? 'EQUIPPED' : owned ? 'EQUIP' : `${pxIcon('coin', 11)} ${a.cost}`}</div>
+      </div>
     `;
     btn.onclick = () => {
       if (game.buyOrEquipArmor(a.id)) renderForgeContents(game);
@@ -257,7 +277,7 @@ function openCursedAltar(game, pacts) {
     const btn = document.createElement('button');
     btn.className = 'choice-card';
     btn.innerHTML = `
-      <div class="choice-ico crimson">⛧</div>
+      <div class="choice-ico crimson">${pxIcon('ch_abyss', 24)}</div>
       <div class="choice-body">
         <div class="choice-top"><span class="crimson">${pact.name}</span></div>
         <div class="choice-desc">${pact.desc}</div>
@@ -300,7 +320,7 @@ function renderChapterPicker() {
   for (const b of BIOMES) {
     const btn = document.createElement('button');
     btn.className = `ch-btn ${b.chapter === selectedChapter ? 'active' : ''}`;
-    btn.innerHTML = `<span class="ch-ico">${b.icon}</span><span>C${b.chapter}</span>`;
+    btn.innerHTML = `${pxIcon(b.icon, 20)}<span>C${b.chapter}</span>`;
     btn.onclick = () => {
       selectedChapter = b.chapter;
       sfx.uiClick();
@@ -330,7 +350,8 @@ $('btn-restart').onclick = () => {
 
 function syncAudioBtn() {
   const btn = $('btn-mute');
-  btn.textContent = sfx.getModeIcon();
+  const iconName = sfx.mode === 'all' ? 'sound_all' : sfx.mode === 'sfx' ? 'sound_sfx' : 'sound_mute';
+  btn.innerHTML = pxIcon(iconName, 18);
   btn.title = sfx.getModeLabel();
 }
 syncAudioBtn();
