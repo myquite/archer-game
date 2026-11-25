@@ -264,6 +264,7 @@ export class ArcherGame {
     this.showBanner(`FLOOR ${floor}`, sub, isBossFloor ? '#f43f5e' : '#fde047', 2.4);
 
     if (isBossFloor) sfx.bossRoar();
+    sfx.setMusicTheme(this.biome.id);
     this.ui.syncHud(this);
   }
 
@@ -345,6 +346,7 @@ export class ArcherGame {
       const bossDef = ENEMY_DEFS[bossId] || ENEMY_DEFS.boss_warden;
       this._queueRift(this.arenaW / 2, 118, bossId, true);
       sfx.bossRoar();
+      sfx.setMusicTheme('boss');
       this.showBanner(bossDef.name, 'CHAPTER BOSS HAS AWAKENED!', '#f43f5e', 2.0);
       const flankCount = 6 + this.floor * 2;
       for (let i = 0; i < flankCount; i++) {
@@ -785,8 +787,10 @@ export class ArcherGame {
     this.lastFrame = ts;
 
     if (this.state === 'playing') {
+      sfx.setMusicDucked(false);
       this._update(dt);
     } else {
+      sfx.setMusicDucked(true);
       this.time += dt;
     }
 
@@ -1010,7 +1014,7 @@ export class ArcherGame {
     const hasComet = p.evolutions.has('comet_lance');
     const hasPhantom = p.evolutions.has('phantom_volley');
 
-    sfx.shoot(isSnap);
+    sfx.shoot(isSnap, weapon.id);
     p.recoil = isSnap ? 1.0 : 0.55;
     if (isSnap) {
       this.shake = Math.max(this.shake, 1.8);
@@ -1140,6 +1144,7 @@ export class ArcherGame {
       } else if (active === 0) {
         this.roomCleared = true;
         sfx.doorOpen();
+        sfx.setMusicTheme(this.biome.id);
         this.portal = { x: this.arenaW / 2, y: 34 };
         this.showBanner('FLOOR CLEARED!', 'OPEN CHEST OR ENTER NORTH PORTAL ▲', '#4ade80', 2.6);
 
@@ -1554,6 +1559,7 @@ export class ArcherGame {
       const spill = Math.max(0, dmg - before);
       e.hp -= spill;
       if (before > 0 && e.armor <= 0) {
+        sfx.armorBreak();
         this._spawnText(e.x, e.y - 30, 'ARMOR BROKEN!', '#fbbf24', true);
         this._burstParticles(e.x, e.y - 16, '#fbbf24', 14, 70, true);
         this.starbursts.push({ x: e.x, y: e.y - 14, size: 12, color: '#fde047', life: 0.22, maxLife: 0.22 });
@@ -1783,6 +1789,7 @@ export class ArcherGame {
   }
 
   _triggerShatterstorm(x, y) {
+    sfx.frostNova();
     this.novaRings.push({ x, y, maxRadius: 34, color: '#67e8f9', life: 0.24, maxLife: 0.24 });
     const p = this.player;
     for (let k = 0; k < 3; k++) {
@@ -2082,6 +2089,7 @@ export class ArcherGame {
 
     // Armor Passive: Frostweave Mantle freezes & knocks back attackers when hit!
     if (ARMORS[p.armorId].passive === 'frost_retaliate' && p.hp > 0) {
+      sfx.frostNova();
       this.novaRings.push({ x: p.x, y: p.y, maxRadius: 68, color: '#67e8f9', life: 0.32, maxLife: 0.32 });
       this.lightFlashes.push({ x: p.x, y: p.y, radius: 64, colorKey: 'cyan', life: 0.24, maxLife: 0.24 });
       this._spawnText(p.x, p.y - 28, 'FROST NOVA!', '#67e8f9', false);
@@ -2097,6 +2105,7 @@ export class ArcherGame {
 
     if (p.hp <= 0) {
       this.state = 'gameover';
+      sfx.gameOver();
       this.ui.openGameOver(this);
     }
   }

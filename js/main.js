@@ -328,9 +328,16 @@ $('btn-restart').onclick = () => {
   game.startRun(selectedChapter);
 };
 
+function syncAudioBtn() {
+  const btn = $('btn-mute');
+  btn.textContent = sfx.getModeIcon();
+  btn.title = sfx.getModeLabel();
+}
+syncAudioBtn();
+
 $('btn-mute').onclick = () => {
-  const muted = sfx.toggleMute();
-  $('btn-mute').textContent = muted ? '🔇' : '🔊';
+  sfx.cycleMode();
+  syncAudioBtn();
 };
 
 $('btn-gear').onclick = () => {
